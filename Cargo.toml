@@ -1,0 +1,17 @@
+[package]
+name = "redstone_designer"
+version = "0.1.0"
+edition = "2021"
+
+# NOTE: remove "dynamic" feature from bevy when compiling a release build to
+# avoid the need to bundle libbevy_dylib
+[dependencies]
+bevy = { version = "0.8", features = ["dynamic"] }
+
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code
+[profile.dev.package."*"]
+opt-level = 3
