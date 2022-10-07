@@ -50,7 +50,7 @@ fn setup_light_and_camera(mut commands: Commands) {
     const HALF_SIZE: f32 = 10.0 * BLOCKS;
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
-            illuminance: 1000.0,
+            illuminance: 20_000.0,
             // Configure the projection to better fit the scene
             shadow_projection: OrthographicProjection {
                 left: -HALF_SIZE,

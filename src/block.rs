@@ -45,12 +45,6 @@ fn render_element(
     element: Element,
     transform: Transform,
 ) {
-    let iron_block_material = load_block_material(
-        asset_server,
-        materials,
-        "minecraft/assets/minecraft/textures/block/iron_block.png",
-    );
-
     let faces = [
         BlockFace::Down,
         BlockFace::Up,
@@ -61,9 +55,11 @@ fn render_element(
     ];
     for face in faces {
         if let Some(mesh) = mesh_for_face(&element, face) {
+            // TODO: memoize materials
+            let material = materials.add(material_for_face(&asset_server, &element, face));
             commands.spawn_bundle(PbrBundle {
                 mesh: meshes.add(mesh),
-                material: iron_block_material.clone(),
+                material,
                 transform,
                 ..default()
             });
@@ -71,11 +67,31 @@ fn render_element(
     }
 }
 
+fn material_for_face(
+    asset_server: &Res<AssetServer>,
+    element: &Element,
+    face: BlockFace,
+) -> StandardMaterial {
+    if let Some(element_face) = element.faces.get(&face) {
+        if let Some(loc) = element_face.texture.location() {
+            let image_path = "minecraft/assets/minecraft/textures/".to_owned() + loc + ".png";
+            let image_handle = asset_server.load(&image_path);
+            return StandardMaterial {
+                base_color_texture: Some(image_handle),
+                alpha_mode: AlphaMode::Opaque,
+                ..default()
+            };
+        }
+    }
+    Color::rgb(0.8, 0., 0.8).into()
+}
+
 fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
     let [min_x, min_y, min_z] = element.from;
     let [max_x, max_y, max_z] = element.to;
 
     let element_face = element.faces.get(&face)?;
+    let uv = element_face.uv.unwrap_or([0., 0., 16.0, 16.0]);
 
     let vertices = match face {
         BlockFace::Up => [
@@ -139,7 +155,6 @@ pub fn load_block_material(
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(image_handle.clone()),
         alpha_mode: AlphaMode::Opaque,
-        unlit: true,
         ..default()
     });
     material_handle
