@@ -74,7 +74,7 @@ fn setup_light_and_camera(mut commands: Commands) {
 
     // camera
     commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-6.0 * BLOCKS, 2.5 * BLOCKS, 13.0 * BLOCKS).looking_at(
+        transform: Transform::from_xyz(-1.0 * BLOCKS, 5.0 * BLOCKS, 10.0 * BLOCKS).looking_at(
             Vec3 {
                 x: 8.0 * BLOCKS,
                 y: 0.0,
