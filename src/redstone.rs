@@ -1,11 +1,13 @@
 use bevy::prelude::*;
+use minecraft_assets::api::{AssetPack, ModelResolver};
 
 pub struct RedstonePlugin;
 
 impl Plugin for RedstonePlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup_floor)
-            .add_startup_system(setup);
+            .add_startup_system(setup_block)
+            .add_startup_system(setup_light_and_camera);
     }
 }
 
@@ -18,7 +20,7 @@ fn setup_floor(
     let sandstone_material = load_block_material(
         &asset_server,
         &mut materials,
-        "textures/block/sandstone_top.png",
+        "minecraft/assets/minecraft/textures/block/sandstone_top.png",
     );
 
     for x in 0..16 {
@@ -33,26 +35,7 @@ fn setup_floor(
     }
 }
 
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let iron_block_material = load_block_material(
-        &asset_server,
-        &mut materials,
-        "textures/block/iron_block.png",
-    );
-
-    // cube
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        material: iron_block_material,
-        transform: Transform::from_xyz(8.0, 0.5, 8.0),
-        ..default()
-    });
-
+fn setup_light_and_camera(mut commands: Commands) {
     // ambient light
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -112,4 +95,43 @@ fn load_block_material(
         ..default()
     });
     material_handle
+}
+
+fn setup_block(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+) {
+    let iron_block_material = load_block_material(
+        &asset_server,
+        &mut materials,
+        "minecraft/assets/minecraft/textures/block/iron_block.png",
+    );
+
+    let assets = AssetPack::at_path("assets/minecraft/");
+    let models = assets
+        .load_block_model_recursive("iron_block")
+        .unwrap();
+    let model = ModelResolver::resolve_model(models.iter());
+
+    let transform = Transform::from_xyz(8.0, 0.0, 8.0);
+
+    if let Some(elements) = model.elements {
+        for element in elements {
+            commands.spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Box {
+                    min_x: element.from[0] / 16.0,
+                    min_y: element.from[1] / 16.0,
+                    min_z: element.from[2] / 16.0,
+                    max_x: element.to[0] / 16.0,
+                    max_y: element.to[1] / 16.0,
+                    max_z: element.to[2] / 16.0,
+                })),
+                material: iron_block_material.clone(),
+                transform,
+                ..default()
+            });
+        }
+    }
 }

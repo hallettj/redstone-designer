@@ -1956,6 +1956,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "minecraft-assets"
+version = "0.0.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f78cc79b9e5cf5e4c0d79fe0eb3b6b7593d77436186c544657c55bb59164a943"
+dependencies = [
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "minimal-lexical"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2470,6 +2481,7 @@ name = "redstone_designer"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "minecraft-assets",
 ]
 
 [[package]]
