@@ -1,3 +1,4 @@
+mod block;
 mod redstone;
 
 use bevy::{prelude::*, render::texture::ImageSettings};

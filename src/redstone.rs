@@ -1,5 +1,5 @@
+use crate::block::{load_block_material, setup_block};
 use bevy::prelude::*;
-use minecraft_assets::api::{AssetPack, ModelResolver};
 
 /// The model scale in use sets 1.0 unit of distance in the render space to be
 /// one Minecraft "pixel". A Minecraft block is 16 pixels.
@@ -84,56 +84,4 @@ fn setup_light_and_camera(mut commands: Commands) {
         ),
         ..default()
     });
-}
-
-fn load_block_material(
-    asset_server: &Res<AssetServer>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-    asset_path: &str,
-) -> Handle<StandardMaterial> {
-    let image_handle = asset_server.load(asset_path);
-    let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(image_handle.clone()),
-        alpha_mode: AlphaMode::Opaque,
-        unlit: true,
-        ..default()
-    });
-    material_handle
-}
-
-fn setup_block(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    let iron_block_material = load_block_material(
-        &asset_server,
-        &mut materials,
-        "minecraft/assets/minecraft/textures/block/iron_block.png",
-    );
-
-    let assets = AssetPack::at_path("assets/minecraft/");
-    let models = assets.load_block_model_recursive("iron_block").unwrap();
-    let model = ModelResolver::resolve_model(models.iter());
-
-    let transform = Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS);
-
-    if let Some(elements) = model.elements {
-        for element in elements {
-            commands.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box {
-                    min_x: element.from[0],
-                    min_y: element.from[1],
-                    min_z: element.from[2],
-                    max_x: element.to[0],
-                    max_y: element.to[1],
-                    max_z: element.to[2],
-                })),
-                material: iron_block_material.clone(),
-                transform,
-                ..default()
-            });
-        }
-    }
 }
