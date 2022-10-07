@@ -1,6 +1,10 @@
 use bevy::prelude::*;
 use minecraft_assets::api::{AssetPack, ModelResolver};
 
+/// The model scale in use sets 1.0 unit of distance in the render space to be
+/// one Minecraft "pixel". A Minecraft block is 16 pixels.
+const BLOCKS: f32 = 16.0;
+
 pub struct RedstonePlugin;
 
 impl Plugin for RedstonePlugin {
@@ -26,9 +30,9 @@ fn setup_floor(
     for x in 0..16 {
         for z in 0..16 {
             commands.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Plane { size: 1.0 })),
+                mesh: meshes.add(Mesh::from(shape::Plane { size: 1.0 * BLOCKS })),
                 material: sandstone_material.clone(),
-                transform: Transform::from_xyz(x as f32, 0.0, z as f32),
+                transform: Transform::from_xyz(x as f32 * BLOCKS, 0.0, z as f32 * BLOCKS),
                 ..default()
             });
         }
@@ -43,7 +47,7 @@ fn setup_light_and_camera(mut commands: Commands) {
     });
 
     // directional 'sun' light
-    const HALF_SIZE: f32 = 10.0;
+    const HALF_SIZE: f32 = 10.0 * BLOCKS;
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
             illuminance: 1000.0,
@@ -61,7 +65,7 @@ fn setup_light_and_camera(mut commands: Commands) {
             ..default()
         },
         transform: Transform {
-            translation: Vec3::new(8.0, 2.0, 8.0),
+            translation: Vec3::new(8.0 * BLOCKS, 2.0 * BLOCKS, 8.0 * BLOCKS),
             rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
             ..default()
         },
@@ -70,11 +74,11 @@ fn setup_light_and_camera(mut commands: Commands) {
 
     // camera
     commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-6.0, 2.5, 13.0).looking_at(
+        transform: Transform::from_xyz(-6.0 * BLOCKS, 2.5 * BLOCKS, 13.0 * BLOCKS).looking_at(
             Vec3 {
-                x: 8.0,
+                x: 8.0 * BLOCKS,
                 y: 0.0,
-                z: 8.0,
+                z: 8.0 * BLOCKS,
             },
             Vec3::Y,
         ),
@@ -110,23 +114,21 @@ fn setup_block(
     );
 
     let assets = AssetPack::at_path("assets/minecraft/");
-    let models = assets
-        .load_block_model_recursive("iron_block")
-        .unwrap();
+    let models = assets.load_block_model_recursive("iron_block").unwrap();
     let model = ModelResolver::resolve_model(models.iter());
 
-    let transform = Transform::from_xyz(8.0, 0.0, 8.0);
+    let transform = Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS);
 
     if let Some(elements) = model.elements {
         for element in elements {
             commands.spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Box {
-                    min_x: element.from[0] / 16.0,
-                    min_y: element.from[1] / 16.0,
-                    min_z: element.from[2] / 16.0,
-                    max_x: element.to[0] / 16.0,
-                    max_y: element.to[1] / 16.0,
-                    max_z: element.to[2] / 16.0,
+                    min_x: element.from[0],
+                    min_y: element.from[1],
+                    min_z: element.from[2],
+                    max_x: element.to[0],
+                    max_y: element.to[1],
+                    max_z: element.to[2],
                 })),
                 material: iron_block_material.clone(),
                 transform,
