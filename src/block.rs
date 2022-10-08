@@ -56,7 +56,7 @@ fn render_element(
     for face in faces {
         if let Some(mesh) = mesh_for_face(&element, face) {
             // TODO: memoize materials
-            let material = materials.add(material_for_face(&asset_server, &element, face));
+            let material = materials.add(material_for_face(asset_server, &element, face));
             commands.spawn_bundle(PbrBundle {
                 mesh: meshes.add(mesh),
                 material,
@@ -73,12 +73,13 @@ fn material_for_face(
     face: BlockFace,
 ) -> StandardMaterial {
     if let Some(element_face) = element.faces.get(&face) {
-        if let Some(loc) = element_face.texture.location() {
-            let image_path = "minecraft/assets/minecraft/textures/".to_owned() + loc + ".png";
+        if let Some(location) = element_face.texture.location() {
+            let image_path = format!("minecraft/assets/minecraft/textures/{}.png", location);
             let image_handle = asset_server.load(&image_path);
             return StandardMaterial {
                 base_color_texture: Some(image_handle),
                 alpha_mode: AlphaMode::Opaque,
+                unlit: true,
                 ..default()
             };
         }
@@ -91,44 +92,59 @@ fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
     let [max_x, max_y, max_z] = element.to;
 
     let element_face = element.faces.get(&face)?;
-    let uv = element_face.uv.unwrap_or([0., 0., 16.0, 16.0]);
 
+    // Minecraft models provide a pair of uv pixel coordinates for each element face in the form,
+    //
+    //     [min_u inclusive, min_v inclusive, max_u exclusive, max_v exclusive]
+    //
+    // The coordinates are integers representing pixel coordinates in a texture image that is most
+    // often 16×16 pixels. Bevy uses floating point uv coordinates from 0.0 to 1.0. So we have to
+    // do some translation.
+    //
+    // If a model does not specify uv coordinates then the default values are [0, 0, 16, 16].
+    let uv = element_face.uv.unwrap_or([0., 0., 16.0, 16.0]);
+    // TODO: Check image size instead of assuming that all image files are 16×16 px
+    let (min_u, min_v, max_u, max_v) = (uv[0] / 16.0, uv[1] / 16.0, uv[2] / 16.0, uv[3] / 16.0);
+
+    // Minecraft textures are flipped - if you look at the image it looks right-side up, but the
+    // origin for uv coordinates is the top-left of the image. So for example to correct vertically
+    // on north, south, east, and west faces min_y maps to max_v, and max_y maps to min_v.
     let vertices = match face {
         BlockFace::Up => [
-            ([min_x, min_y, max_z], [0., 0., 1.0], [0., 0.]),
-            ([max_x, min_y, max_z], [0., 0., 1.0], [1.0, 0.]),
-            ([max_x, max_y, max_z], [0., 0., 1.0], [1.0, 1.0]),
-            ([min_x, max_y, max_z], [0., 0., 1.0], [0., 1.0]),
+            ([max_x, max_y, min_z], [0., 1.0, 0.], [max_u, min_v]),
+            ([min_x, max_y, min_z], [0., 1.0, 0.], [min_u, min_v]),
+            ([min_x, max_y, max_z], [0., 1.0, 0.], [min_u, max_v]),
+            ([max_x, max_y, max_z], [0., 1.0, 0.], [max_u, max_v]),
         ],
         BlockFace::Down => [
-            ([min_x, max_y, min_z], [0., 0., -1.0], [1.0, 0.]),
-            ([max_x, max_y, min_z], [0., 0., -1.0], [0., 0.]),
-            ([max_x, min_y, min_z], [0., 0., -1.0], [0., 1.0]),
-            ([min_x, min_y, min_z], [0., 0., -1.0], [1.0, 1.0]),
+            ([max_x, min_y, max_z], [0., -1.0, 0.], [max_u, min_v]),
+            ([min_x, min_y, max_z], [0., -1.0, 0.], [min_u, min_v]),
+            ([min_x, min_y, min_z], [0., -1.0, 0.], [min_u, max_v]),
+            ([max_x, min_y, min_z], [0., -1.0, 0.], [max_u, max_v]),
         ],
         BlockFace::North => [
-            ([max_x, min_y, max_z], [0., -1.0, 0.], [0., 0.]),
-            ([min_x, min_y, max_z], [0., -1.0, 0.], [1.0, 0.]),
-            ([min_x, min_y, min_z], [0., -1.0, 0.], [1.0, 1.0]),
-            ([max_x, min_y, min_z], [0., -1.0, 0.], [0., 1.0]),
+            ([min_x, max_y, min_z], [0., 0., -1.0], [max_u, min_v]),
+            ([max_x, max_y, min_z], [0., 0., -1.0], [min_u, min_v]),
+            ([max_x, min_y, min_z], [0., 0., -1.0], [min_u, max_v]),
+            ([min_x, min_y, min_z], [0., 0., -1.0], [max_u, max_v]),
         ],
         BlockFace::South => [
-            ([max_x, max_y, min_z], [0., 1.0, 0.], [1.0, 0.]),
-            ([min_x, max_y, min_z], [0., 1.0, 0.], [0., 0.]),
-            ([min_x, max_y, max_z], [0., 1.0, 0.], [0., 1.0]),
-            ([max_x, max_y, max_z], [0., 1.0, 0.], [1.0, 1.0]),
+            ([min_x, min_y, max_z], [0., 0., 1.0], [min_u, max_v]),
+            ([max_x, min_y, max_z], [0., 0., 1.0], [max_u, max_v]),
+            ([max_x, max_y, max_z], [0., 0., 1.0], [max_u, min_v]),
+            ([min_x, max_y, max_z], [0., 0., 1.0], [min_u, min_v]),
         ],
         BlockFace::East => [
-            ([max_x, min_y, min_z], [1.0, 0., 0.], [0., 0.]),
-            ([max_x, max_y, min_z], [1.0, 0., 0.], [1.0, 0.]),
-            ([max_x, max_y, max_z], [1.0, 0., 0.], [1.0, 1.0]),
-            ([max_x, min_y, max_z], [1.0, 0., 0.], [0., 1.0]),
+            ([max_x, min_y, min_z], [1.0, 0., 0.], [max_u, max_v]),
+            ([max_x, max_y, min_z], [1.0, 0., 0.], [max_u, min_v]),
+            ([max_x, max_y, max_z], [1.0, 0., 0.], [min_u, min_v]),
+            ([max_x, min_y, max_z], [1.0, 0., 0.], [min_u, max_v]),
         ],
         BlockFace::West => [
-            ([min_x, min_y, max_z], [-1.0, 0., 0.], [1.0, 0.]),
-            ([min_x, max_y, max_z], [-1.0, 0., 0.], [0., 0.]),
-            ([min_x, max_y, min_z], [-1.0, 0., 0.], [0., 1.0]),
-            ([min_x, min_y, min_z], [-1.0, 0., 0.], [1.0, 1.0]),
+            ([min_x, min_y, max_z], [-1.0, 0., 0.], [max_u, max_v]),
+            ([min_x, max_y, max_z], [-1.0, 0., 0.], [max_u, min_v]),
+            ([min_x, max_y, min_z], [-1.0, 0., 0.], [min_u, min_v]),
+            ([min_x, min_y, min_z], [-1.0, 0., 0.], [min_u, max_v]),
         ],
     };
 
@@ -155,6 +171,7 @@ pub fn load_block_material(
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(image_handle.clone()),
         alpha_mode: AlphaMode::Opaque,
+        unlit: true,
         ..default()
     });
     material_handle
