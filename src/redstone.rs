@@ -11,7 +11,7 @@ impl Plugin for RedstonePlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup_floor)
             .add_startup_system(setup_block)
-            .add_startup_system(setup_light_and_camera);
+            .add_startup_system(setup_lights);
     }
 }
 
@@ -39,7 +39,7 @@ fn setup_floor(
     }
 }
 
-fn setup_light_and_camera(mut commands: Commands) {
+fn setup_lights(mut commands: Commands) {
     // ambient light
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -69,19 +69,6 @@ fn setup_light_and_camera(mut commands: Commands) {
             rotation: Quat::from_rotation_x(-std::f32::consts::FRAC_PI_4),
             ..default()
         },
-        ..default()
-    });
-
-    // camera
-    commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-1.0 * BLOCKS, 5.0 * BLOCKS, 10.0 * BLOCKS).looking_at(
-            Vec3 {
-                x: 8.0 * BLOCKS,
-                y: 0.0,
-                z: 8.0 * BLOCKS,
-            },
-            Vec3::Y,
-        ),
         ..default()
     });
 }
