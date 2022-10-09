@@ -10,6 +10,7 @@ To run this thing you basically need two things:
 
 - the Rust nightly toolchain
 - a copy of Minecraft's game assets
+- OS dependencies listed [here](https://bevyengine.org/learn/book/getting-started/setup/#install-os-dependencies)
 
 ### Rust toolchain
 
