@@ -1,12 +1,6 @@
-use bevy::{
-    input::mouse::{MouseMotion, MouseWheel},
-    prelude::*,
-    render::camera::Projection,
-};
+use bevy::{input::mouse::MouseMotion, prelude::*, render::camera::Projection};
 
-/// The model scale in use sets 1.0 unit of distance in the render space to be
-/// one Minecraft "pixel". A Minecraft block is 16 pixels.
-const BLOCKS: f32 = 16.0;
+use crate::constants::BLOCKS;
 
 pub struct CameraPlugin;
 
@@ -38,16 +32,17 @@ impl Default for PanOrbit {
 fn pan_orbit_camera(
     windows: Res<Windows>,
     mut ev_motion: EventReader<MouseMotion>,
-    mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
+    input_keyboard: Res<Input<KeyCode>>,
     mut query: Query<(&mut PanOrbit, &mut Transform, &Projection)>,
 ) {
     let orbit_button = MouseButton::Right;
     let pan_button = MouseButton::Middle;
+    let pan_up_button = KeyCode::Space;
+    let pan_down_button = KeyCode::LShift;
 
     let mut pan = Vec2::ZERO;
     let mut rotation_move = Vec2::ZERO;
-    let mut scroll = 0.0;
     let mut orbit_button_changed = false;
 
     if input_mouse.pressed(orbit_button) {
@@ -59,9 +54,6 @@ fn pan_orbit_camera(
         for ev in ev_motion.iter() {
             pan += ev.delta;
         }
-    }
-    for ev in ev_scroll.iter() {
-        scroll += ev.y;
     }
     if input_mouse.just_released(orbit_button) || input_mouse.just_pressed(orbit_button) {
         orbit_button_changed = true;
@@ -105,11 +97,6 @@ fn pan_orbit_camera(
             // make panning proportional to distance away from focus point
             let translation = (right + up) * pan_orbit.radius;
             pan_orbit.focus += translation;
-        } else if scroll.abs() > 0.0 {
-            any = true;
-            pan_orbit.radius -= scroll * pan_orbit.radius * 0.2;
-            // dont allow zoom to reach zero or you get stuck
-            pan_orbit.radius = f32::max(pan_orbit.radius, 0.05);
         }
 
         if any {
@@ -119,6 +106,20 @@ fn pan_orbit_camera(
             let rot_matrix = Mat3::from_quat(transform.rotation);
             transform.translation =
                 pan_orbit.focus + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, pan_orbit.radius));
+        }
+
+        let jump_step = 0.5;
+        let mut vertical_translation = 0.0;
+        if input_keyboard.pressed(pan_up_button) {
+            vertical_translation += jump_step;
+        }
+        if input_keyboard.pressed(pan_down_button) {
+            vertical_translation -= jump_step;
+        }
+        if vertical_translation != 0.0 {
+            let translation = Vec3::new(0.0, vertical_translation, 0.0);
+            transform.translation += translation;
+            pan_orbit.focus += translation;
         }
     }
 }

@@ -1,9 +1,8 @@
-use crate::block::{load_block_material, setup_block};
+use crate::{
+    block::{load_block_material, setup_block},
+    constants::BLOCKS,
+};
 use bevy::prelude::*;
-
-/// The model scale in use sets 1.0 unit of distance in the render space to be
-/// one Minecraft "pixel". A Minecraft block is 16 pixels.
-const BLOCKS: f32 = 16.0;
 
 pub struct RedstonePlugin;
 
@@ -29,10 +28,15 @@ fn setup_floor(
 
     for x in 0..16 {
         for z in 0..16 {
+            println!("block {:?}, {:?}", x, z);
             commands.spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Plane { size: 1.0 * BLOCKS })),
                 material: sandstone_material.clone(),
-                transform: Transform::from_xyz(x as f32 * BLOCKS, 0.0, z as f32 * BLOCKS),
+                transform: Transform::from_xyz(
+                    x as f32 * BLOCKS + 0.5 * BLOCKS, // shift by 0.5 to align edge with origin
+                    0.0,
+                    z as f32 * BLOCKS + 0.5 * BLOCKS,
+                ),
                 ..default()
             });
         }

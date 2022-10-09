@@ -7,9 +7,7 @@ use minecraft_assets::{
     schemas::models::{BlockFace, Element},
 };
 
-/// The model scale in use sets 1.0 unit of distance in the render space to be
-/// one Minecraft "pixel". A Minecraft block is 16 pixels.
-const BLOCKS: f32 = 16.0;
+use crate::constants::BLOCKS;
 
 pub fn setup_block(
     mut commands: Commands,
