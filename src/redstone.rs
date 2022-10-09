@@ -28,7 +28,6 @@ fn setup_floor(
 
     for x in 0..16 {
         for z in 0..16 {
-            println!("block {:?}, {:?}", x, z);
             commands.spawn_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Plane { size: 1.0 * BLOCKS })),
                 material: sandstone_material.clone(),
