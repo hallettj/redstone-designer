@@ -3,6 +3,7 @@ use crate::{
     constants::BLOCKS,
 };
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 
 pub struct RedstonePlugin;
 
@@ -28,16 +29,18 @@ fn setup_floor(
 
     for x in 0..16 {
         for z in 0..16 {
-            commands.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Plane { size: 1.0 * BLOCKS })),
-                material: sandstone_material.clone(),
-                transform: Transform::from_xyz(
-                    x as f32 * BLOCKS + 0.5 * BLOCKS, // shift by 0.5 to align edge with origin
-                    0.0,
-                    z as f32 * BLOCKS + 0.5 * BLOCKS,
-                ),
-                ..default()
-            });
+            commands
+                .spawn_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Plane { size: 1.0 * BLOCKS })),
+                    material: sandstone_material.clone(),
+                    transform: Transform::from_xyz(
+                        x as f32 * BLOCKS + 0.5 * BLOCKS, // shift by 0.5 to align edge with origin
+                        0.0,
+                        z as f32 * BLOCKS + 0.5 * BLOCKS,
+                    ),
+                    ..default()
+                })
+                .insert(Collider::cuboid(0.5 * BLOCKS, 0.0, 0.5 * BLOCKS));
         }
     }
 }

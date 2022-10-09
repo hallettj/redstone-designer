@@ -7,6 +7,7 @@ edition = "2021"
 # avoid the need to bundle libbevy_dylib
 [dependencies]
 bevy = { version = "0.8", features = ["dynamic"] }
+bevy_rapier3d = { version = "0.17.0", features = ["parallel", "wasm-bindgen"] }
 minecraft-assets = "0.0.6"
 
 # Enable a small amount of optimization in debug mode

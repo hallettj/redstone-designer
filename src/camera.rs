@@ -12,16 +12,19 @@ impl Plugin for CameraPlugin {
 }
 
 #[derive(Component)]
-struct PanOrbit {
+pub struct MainCamera;
+
+#[derive(Component)]
+struct PanOrbitCamera {
     /// The "focus point" to orbit around.
     pub focus: Vec3,
     pub radius: f32,
     pub upside_down: bool,
 }
 
-impl Default for PanOrbit {
+impl Default for PanOrbitCamera {
     fn default() -> Self {
-        PanOrbit {
+        PanOrbitCamera {
             focus: Vec3::ZERO,
             radius: 5.0 * BLOCKS,
             upside_down: false,
@@ -34,7 +37,7 @@ fn pan_orbit_camera(
     mut ev_motion: EventReader<MouseMotion>,
     input_mouse: Res<Input<MouseButton>>,
     input_keyboard: Res<Input<KeyCode>>,
-    mut query: Query<(&mut PanOrbit, &mut Transform, &Projection)>,
+    mut query: Query<(&mut PanOrbitCamera, &mut Transform, &Projection)>,
 ) {
     let orbit_button = MouseButton::Right;
     let pan_button = MouseButton::Middle;
@@ -140,9 +143,10 @@ fn setup_camera(mut commands: Commands) {
             transform: Transform::from_translation(translation).looking_at(focus, Vec3::Y),
             ..default()
         })
-        .insert(PanOrbit {
+        .insert(PanOrbitCamera {
             focus,
             radius,
             ..default()
-        });
+        })
+        .insert(MainCamera);
 }
