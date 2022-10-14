@@ -19,25 +19,8 @@ fn handle_click(
     input_mouse: Res<Input<MouseButton>>,
 ) {
     if input_mouse.just_pressed(MouseButton::Left) {
-        let (camera, camera_transform) = query_camera.single();
-        let window = if let RenderTarget::Window(id) = camera.target {
-            windows.get(id).unwrap()
-        } else {
-            windows.get_primary().unwrap()
-        };
-        let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-        if let Some(cursor_pos_screen) = window.cursor_position() {
-            match get_entity_under_cursor(
-                rapier_context,
-                window_size,
-                cursor_pos_screen,
-                camera,
-                camera_transform,
-            ) {
-                Some(hit) => println!("Hit {:?}", hit),
-                None => println!("Tried to cast a ray, but got None"),
-            }
-        }
+        let hit = get_entity_under_cursor(windows, rapier_context, query_camera);
+        println!("Hit {:?}", hit);
     }
 }
 
@@ -47,25 +30,10 @@ fn highlight_block_on_hover(
     query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
     mut query_block_outlines: Query<(&mut Visibility, &Parent), With<BlockOutline>>,
 ) {
-    let (camera, camera_transform) = query_camera.single();
-    let window = if let RenderTarget::Window(id) = camera.target {
-        windows.get(id).unwrap()
-    } else {
-        windows.get_primary().unwrap()
-    };
-    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-    if let Some(cursor_pos_screen) = window.cursor_position() {
-        let hit = get_entity_under_cursor(
-            rapier_context,
-            window_size,
-            cursor_pos_screen,
-            camera,
-            camera_transform,
-        );
-        let hit_entity = hit.map(|h| h.entity);
-        for (mut visibility, parent) in query_block_outlines.iter_mut() {
-            visibility.is_visible = hit_entity.contains(&parent.get());
-        }
+    let hit = get_entity_under_cursor(windows, rapier_context, query_camera);
+    let hit_entity = hit.map(|h| h.entity);
+    for (mut visibility, parent) in query_block_outlines.iter_mut() {
+        visibility.is_visible = hit_entity.contains(&parent.get());
     }
 }
 
@@ -76,14 +44,23 @@ struct EntityHit {
 }
 
 fn get_entity_under_cursor(
+    windows: Res<Windows>,
     rapier_context: Res<RapierContext>,
-    window_size: Vec2,
-    cursor_pos_screen: Vec2,
-    camera: &Camera,
-    camera_transform: &GlobalTransform,
+    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
 ) -> Option<EntityHit> {
-    let (ray_pos, ray_dir) =
-        ray_from_screenspace(window_size, cursor_pos_screen, camera, camera_transform);
+    let (camera, camera_transform) = query_camera.single();
+    let window = if let RenderTarget::Window(id) = camera.target {
+        windows.get(id).unwrap()
+    } else {
+        windows.get_primary().unwrap()
+    };
+    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+    let (ray_pos, ray_dir) = ray_from_screenspace(
+        window_size,
+        window.cursor_position()?,
+        camera,
+        camera_transform,
+    );
     let max_toi = 16.0 * BLOCKS;
     let solid = true;
     let groups = InteractionGroups::all();
