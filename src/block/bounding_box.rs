@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy_rapier3d::prelude::*;
 use minecraft_assets::schemas::models::Element;
 
 use crate::{constants::BLOCKS, lines::LineList};
@@ -82,6 +83,33 @@ pub fn bounding_box_to_line_list(bounding_box: (Vec3, Vec3)) -> LineList {
             Vec3::new(max_x, max_y, max_z),
         ),
     ])
+}
+
+pub fn bounding_box_to_collider(bounding_box: (Vec3, Vec3)) -> Collider {
+    let (
+        Vec3 {
+            x: min_x,
+            y: min_y,
+            z: min_z,
+        },
+        Vec3 {
+            x: max_x,
+            y: max_y,
+            z: max_z,
+        },
+    ) = bounding_box;
+    // It's a cuboid, but translated so that the origin is at one corner instead of in the center
+    // of the cuboid.
+    Collider::convex_hull(&[
+        Vec3::new(min_x, min_y, min_z),
+        Vec3::new(max_x, min_y, min_z),
+        Vec3::new(min_x, max_y, min_z),
+        Vec3::new(min_x, min_y, max_z),
+        Vec3::new(max_x, max_y, min_z),
+        Vec3::new(min_x, max_y, max_z),
+        Vec3::new(max_x, min_y, max_z),
+        Vec3::new(max_x, max_y, max_z),
+    ]).unwrap()
 }
 
 /// Compute a bounding box that encompasses all of the given elements.

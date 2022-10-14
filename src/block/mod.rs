@@ -14,7 +14,9 @@ use crate::{
     lines::LineMaterial,
 };
 
-use self::bounding_box::{bounding_box_for_block_model, bounding_box_to_line_list};
+use self::bounding_box::{
+    bounding_box_for_block_model, bounding_box_to_collider, bounding_box_to_line_list,
+};
 
 #[derive(Component, Clone, Default)]
 pub struct Block;
@@ -39,8 +41,11 @@ pub fn spawn_block(
     mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
     let assets = AssetPack::at_path("assets/minecraft/");
-    let models = assets.load_block_model_recursive("repeater_2tick").unwrap();
+    let block_model = "repeater_2tick";
+    let models = assets.load_block_model_recursive(block_model).unwrap();
     let model = ModelResolver::resolve_model(models.iter());
+    let elements = model.elements.unwrap();
+    let bounding_box = bounding_box_for_block_model(block_model, &elements);
 
     let transform = Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS);
 
@@ -49,14 +54,12 @@ pub fn spawn_block(
             transform,
             ..default()
         })
+        .insert(bounding_box_to_collider(bounding_box))
         .with_children(|parent| {
-            if let Some(elements) = model.elements {
-                let bounding_box = bounding_box_for_block_model("repeater_2tick", &elements);
-                for element in elements.iter() {
-                    spawn_element(parent, &asset_server, &mut meshes, &mut materials, element);
-                }
-                spawn_block_outline(parent, &mut meshes, &mut line_materials, bounding_box);
+            for element in elements.iter() {
+                spawn_element(parent, &asset_server, &mut meshes, &mut materials, element);
             }
+            spawn_block_outline(parent, &mut meshes, &mut line_materials, bounding_box);
         });
 }
 
