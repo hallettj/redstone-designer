@@ -1,3 +1,5 @@
+mod bounding_box;
+
 use bevy::{
     prelude::*,
     render::{mesh::Indices, render_resource::PrimitiveTopology},
@@ -7,13 +9,34 @@ use minecraft_assets::{
     schemas::models::{BlockFace, Element},
 };
 
-use crate::constants::BLOCKS;
+use crate::{
+    constants::{BLOCKS, BLOCK_FACES},
+    lines::LineMaterial,
+};
 
-pub fn setup_block(
+use self::bounding_box::{bounding_box_for_block_model, bounding_box_to_line_list};
+
+#[derive(Component, Clone, Default)]
+pub struct Block;
+
+#[derive(Component, Clone, Default)]
+pub struct BlockOutline;
+
+#[derive(Bundle, Clone, Default)]
+pub struct BlockBundle {
+    block: Block,
+    transform: Transform,
+    global_transform: GlobalTransform,
+    visibility: Visibility,
+    computed_visibility: ComputedVisibility,
+}
+
+pub fn spawn_block(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
     let assets = AssetPack::at_path("assets/minecraft/");
     let models = assets.load_block_model_recursive("repeater_2tick").unwrap();
@@ -21,44 +44,55 @@ pub fn setup_block(
 
     let transform = Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS);
 
-    if let Some(elements) = model.elements {
-        for element in elements {
-            render_element(
-                &mut commands,
-                &asset_server,
-                &mut meshes,
-                &mut materials,
-                element,
-                transform,
-            );
-        }
-    }
+    commands
+        .spawn_bundle(BlockBundle {
+            transform,
+            ..default()
+        })
+        .with_children(|parent| {
+            if let Some(elements) = model.elements {
+                let bounding_box = bounding_box_for_block_model("repeater_2tick", &elements);
+                for element in elements.iter() {
+                    spawn_element(parent, &asset_server, &mut meshes, &mut materials, element);
+                }
+                spawn_block_outline(parent, &mut meshes, &mut line_materials, bounding_box);
+            }
+        });
 }
 
-fn render_element(
-    commands: &mut Commands,
+/// This is the black wireframe that is displayed around a block on hover.
+fn spawn_block_outline(
+    parent: &mut ChildBuilder,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<LineMaterial>>,
+    bounding_box: (Vec3, Vec3),
+) {
+    parent
+        .spawn_bundle(MaterialMeshBundle {
+            mesh: meshes.add(Mesh::from(bounding_box_to_line_list(bounding_box))),
+            material: materials.add(LineMaterial::new(Color::BLACK)),
+            visibility: Visibility { is_visible: false },
+            ..default()
+        })
+        .insert(BlockOutline);
+}
+
+/// Each Minecraft model is made up of one or more "elements" which are boxes that may have
+/// different textures on each face.
+fn spawn_element(
+    parent: &mut ChildBuilder,
     asset_server: &Res<AssetServer>,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    element: Element,
-    transform: Transform,
+    element: &Element,
 ) {
-    let faces = [
-        BlockFace::Down,
-        BlockFace::Up,
-        BlockFace::North,
-        BlockFace::South,
-        BlockFace::West,
-        BlockFace::East,
-    ];
-    for face in faces {
+    for face in BLOCK_FACES {
         if let Some(mesh) = mesh_for_face(&element, face) {
             // TODO: memoize materials
             let material = materials.add(material_for_face(asset_server, &element, face));
-            commands.spawn_bundle(PbrBundle {
+            parent.spawn_bundle(PbrBundle {
                 mesh: meshes.add(mesh),
                 material,
-                transform,
                 ..default()
             });
         }

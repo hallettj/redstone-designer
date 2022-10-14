@@ -1,5 +1,5 @@
 use crate::{
-    block::{load_block_material, setup_block},
+    block::{load_block_material, spawn_block},
     constants::BLOCKS,
 };
 use bevy::prelude::*;
@@ -10,7 +10,7 @@ pub struct RedstonePlugin;
 impl Plugin for RedstonePlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup_floor)
-            .add_startup_system(setup_block)
+            .add_startup_system(spawn_block)
             .add_startup_system(setup_lights);
     }
 }
@@ -40,7 +40,7 @@ fn setup_floor(
                     ),
                     ..default()
                 })
-                .insert(Collider::cuboid(0.5 * BLOCKS, 0.0, 0.5 * BLOCKS));
+                .insert(Collider::cuboid(0.5 * BLOCKS, 1.0e-5, 0.5 * BLOCKS));
         }
     }
 }
