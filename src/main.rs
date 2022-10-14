@@ -1,3 +1,5 @@
+#![feature(option_result_contains)]
+
 mod block;
 mod camera;
 mod constants;

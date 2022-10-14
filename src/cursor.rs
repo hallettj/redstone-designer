@@ -1,13 +1,14 @@
 use bevy::{prelude::*, render::camera::RenderTarget};
 use bevy_rapier3d::prelude::*;
 
-use crate::{camera::MainCamera, constants::BLOCKS};
+use crate::{block::BlockOutline, camera::MainCamera, constants::BLOCKS};
 
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(handle_click);
+        app.add_system(handle_click)
+            .add_system(highlight_block_on_hover);
     }
 }
 
@@ -36,6 +37,34 @@ fn handle_click(
                 Some(hit) => println!("Hit {:?}", hit),
                 None => println!("Tried to cast a ray, but got None"),
             }
+        }
+    }
+}
+
+fn highlight_block_on_hover(
+    windows: Res<Windows>,
+    rapier_context: Res<RapierContext>,
+    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
+    mut query_block_outlines: Query<(&mut Visibility, &Parent), With<BlockOutline>>,
+) {
+    let (camera, camera_transform) = query_camera.single();
+    let window = if let RenderTarget::Window(id) = camera.target {
+        windows.get(id).unwrap()
+    } else {
+        windows.get_primary().unwrap()
+    };
+    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+    if let Some(cursor_pos_screen) = window.cursor_position() {
+        let hit = get_entity_under_cursor(
+            rapier_context,
+            window_size,
+            cursor_pos_screen,
+            camera,
+            camera_transform,
+        );
+        let hit_entity = hit.map(|h| h.entity);
+        for (mut visibility, parent) in query_block_outlines.iter_mut() {
+            visibility.is_visible = hit_entity.contains(&parent.get());
         }
     }
 }
