@@ -11,7 +11,9 @@ use minecraft_assets::{
 
 use crate::{
     constants::{BLOCKS, BLOCK_FACES},
+    cursor::Cursor,
     lines::LineMaterial,
+    user_input::{UICommand, UserInput},
 };
 
 use self::bounding_box::{
@@ -33,22 +35,72 @@ pub struct BlockBundle {
     computed_visibility: ComputedVisibility,
 }
 
+pub struct BlockPlugin;
+
+impl Plugin for BlockPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_startup_system(spawn_test_block)
+            .add_system(highlight_block_on_hover)
+            .add_system(place_block)
+            .add_system(destroy_block);
+    }
+}
+
+fn highlight_block_on_hover(
+    cursor: Res<Cursor>,
+    mut query_block_outlines: Query<(&mut Visibility, &Parent), With<BlockOutline>>,
+) {
+    for (mut visibility, parent) in query_block_outlines.iter_mut() {
+        visibility.is_visible = cursor.current_block.contains(&parent.get());
+    }
+}
+
+fn place_block(mut commands: Commands, user_input: Res<UserInput>, cursor: Res<Cursor>) {
+    if user_input.sent_command(UICommand::PlaceBlock) {
+        println!("place block: @ {:?}", cursor.current_block);
+    }
+}
+
+fn destroy_block(mut commands: Commands, user_input: Res<UserInput>, cursor: Res<Cursor>) {
+    if user_input.sent_command(UICommand::DestroyBlock) {
+        if let Some(block) = cursor.current_block {
+            commands.entity(block).despawn_recursive();
+        }
+    }
+}
+
+pub fn spawn_test_block(
+    commands: Commands,
+    asset_server: Res<AssetServer>,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
+    line_materials: ResMut<Assets<LineMaterial>>,
+) {
+    spawn_block(
+        commands,
+        asset_server,
+        meshes,
+        materials,
+        line_materials,
+        "repeater_2tick",
+        Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS),
+    )
+}
+
 pub fn spawn_block(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut line_materials: ResMut<Assets<LineMaterial>>,
+    block_model: &str,
+    transform: Transform,
 ) {
     let assets = AssetPack::at_path("assets/minecraft/");
-    let block_model = "repeater_2tick";
     let models = assets.load_block_model_recursive(block_model).unwrap();
     let model = ModelResolver::resolve_model(models.iter());
     let elements = model.elements.unwrap();
     let bounding_box = bounding_box_for_block_model(block_model, &elements);
-
-    let transform = Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS);
-
     commands
         .spawn_bundle(BlockBundle {
             transform,

@@ -1,40 +1,38 @@
 use bevy::{prelude::*, render::camera::RenderTarget};
 use bevy_rapier3d::prelude::*;
 
-use crate::{block::BlockOutline, camera::MainCamera, constants::BLOCKS};
+use crate::{camera::MainCamera, constants::BLOCKS, lines::LineMaterial};
 
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(handle_click)
-            .add_system(highlight_block_on_hover);
+        app.add_plugin(MaterialPlugin::<LineMaterial>::default())
+            .insert_resource(Cursor::default())
+            .add_system_to_stage(CoreStage::PreUpdate, update_current_block);
     }
 }
 
-fn handle_click(
-    windows: Res<Windows>,
-    rapier_context: Res<RapierContext>,
-    query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    input_mouse: Res<Input<MouseButton>>,
-) {
-    if input_mouse.just_pressed(MouseButton::Left) {
-        let hit = get_entity_under_cursor(windows, rapier_context, query_camera);
-        println!("Hit {:?}", hit);
-    }
+#[derive(Default, Debug)]
+pub struct Cursor {
+    /// Block under the cursor
+    pub current_block: Option<Entity>,
+
+    /// If placing a new block at the cursor position, this transform provides the appropriate
+    /// translation and rotation for placement.
+    pub place_block_transform: Option<Transform>,
 }
 
-fn highlight_block_on_hover(
+fn update_current_block(
+    mut cursor: ResMut<Cursor>,
     windows: Res<Windows>,
     rapier_context: Res<RapierContext>,
     query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    mut query_block_outlines: Query<(&mut Visibility, &Parent), With<BlockOutline>>,
+    // mut query_block_outlines: Query<(&mut Visibility, &Parent), With<BlockOutline>>,
 ) {
     let hit = get_entity_under_cursor(windows, rapier_context, query_camera);
     let hit_entity = hit.map(|h| h.entity);
-    for (mut visibility, parent) in query_block_outlines.iter_mut() {
-        visibility.is_visible = hit_entity.contains(&parent.get());
-    }
+    cursor.current_block = hit_entity;
 }
 
 #[derive(Clone, Debug, PartialEq)]

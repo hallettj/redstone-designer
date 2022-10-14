@@ -6,13 +6,15 @@ mod constants;
 mod cursor;
 mod lines;
 mod redstone;
+mod user_input;
 
 use bevy::{prelude::*, render::texture::ImageSettings};
 use bevy_rapier3d::prelude::*;
+use block::BlockPlugin;
 use camera::CameraPlugin;
 use cursor::CursorPlugin;
-use lines::LineMaterial;
 use redstone::RedstonePlugin;
+use user_input::UserInputPlugin;
 
 fn main() {
     App::new()
@@ -20,10 +22,11 @@ fn main() {
         .insert_resource(ImageSettings::default_nearest())
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_plugin(RapierDebugRenderPlugin::default())
-        .add_plugin(MaterialPlugin::<LineMaterial>::default())
+        // .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(CursorPlugin)
         .add_plugin(CameraPlugin)
+        .add_plugin(BlockPlugin)
         .add_plugin(RedstonePlugin)
+        .add_plugin(UserInputPlugin)
         .run();
 }

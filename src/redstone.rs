@@ -1,7 +1,4 @@
-use crate::{
-    block::{load_block_material, spawn_block},
-    constants::BLOCKS,
-};
+use crate::{block::load_block_material, constants::BLOCKS};
 use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 
@@ -10,7 +7,6 @@ pub struct RedstonePlugin;
 impl Plugin for RedstonePlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup_floor)
-            .add_startup_system(spawn_block)
             .add_startup_system(setup_lights);
     }
 }
