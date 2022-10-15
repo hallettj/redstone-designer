@@ -6,7 +6,7 @@ use bevy::{
 };
 use minecraft_assets::{
     api::{AssetPack, ModelResolver},
-    schemas::models::{BlockFace, Element},
+    schemas::models::{BlockFace, Element, Texture},
 };
 
 use crate::{
@@ -70,29 +70,29 @@ fn destroy_block(mut commands: Commands, user_input: Res<UserInput>, cursor: Res
 }
 
 pub fn spawn_test_block(
-    commands: Commands,
+    mut commands: Commands,
     asset_server: Res<AssetServer>,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
-    line_materials: ResMut<Assets<LineMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
     spawn_block(
-        commands,
-        asset_server,
-        meshes,
-        materials,
-        line_materials,
+        &mut commands,
+        &asset_server,
+        &mut meshes,
+        &mut materials,
+        &mut line_materials,
         "repeater_2tick",
         Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS),
     )
 }
 
 pub fn spawn_block(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut line_materials: ResMut<Assets<LineMaterial>>,
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    mut line_materials: &mut ResMut<Assets<LineMaterial>>,
     block_model: &str,
     transform: Transform,
 ) {
@@ -160,9 +160,8 @@ fn material_for_face(
     face: BlockFace,
 ) -> StandardMaterial {
     if let Some(element_face) = element.faces.get(&face) {
-        if let Some(location) = element_face.texture.location() {
-            let image_path = format!("minecraft/assets/minecraft/textures/{}.png", location);
-            let image_handle = asset_server.load(&image_path);
+        if let Some(path) = texture_path(&element_face.texture) {
+            let image_handle = asset_server.load(&path);
             return StandardMaterial {
                 base_color_texture: Some(image_handle),
                 alpha_mode: AlphaMode::Opaque,
@@ -172,6 +171,21 @@ fn material_for_face(
         }
     }
     Color::rgb(0.8, 0., 0.8).into()
+}
+
+fn texture_path(texture: &Texture) -> Option<String> {
+    let location = texture.location()?;
+    let mut parts = location.split(":").take(2);
+    let namespace = parts.next()?;
+    let name_option = parts.next();
+    Some(match name_option {
+        Some(name) => format!("minecraft/assets/{}/textures/{}.png", namespace, name),
+        None => {
+            let name = namespace;
+            let namespace = "minecraft";
+            format!("minecraft/assets/{}/textures/{}.png", namespace, name)
+        }
+    })
 }
 
 fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
@@ -247,19 +261,4 @@ fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.set_indices(Some(indices));
     Some(mesh)
-}
-
-pub fn load_block_material(
-    asset_server: &Res<AssetServer>,
-    materials: &mut ResMut<Assets<StandardMaterial>>,
-    asset_path: &str,
-) -> Handle<StandardMaterial> {
-    let image_handle = asset_server.load(asset_path);
-    let material_handle = materials.add(StandardMaterial {
-        base_color_texture: Some(image_handle.clone()),
-        alpha_mode: AlphaMode::Opaque,
-        unlit: true,
-        ..default()
-    });
-    material_handle
 }
