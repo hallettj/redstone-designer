@@ -88,10 +88,10 @@ fn ray_from_screenspace(
     let ndc_to_world = camera_transform.compute_matrix() * camera.projection_matrix().inverse();
 
     // use it to convert ndc to world-space coordinates
-    let world_pos = ndc_to_world.project_point3(ndc.extend(-1.0));
+    let cursor_pos_world = ndc_to_world.project_point3(ndc.extend(-1.0));
 
-    let origin = camera_transform.translation();
-    let ray_direction = (origin - world_pos).normalize();
+    let origin = cursor_pos_world;
+    let ray_direction = (camera_transform.translation() - cursor_pos_world).normalize();
 
     (origin, ray_direction)
 }
