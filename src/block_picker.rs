@@ -31,15 +31,27 @@ fn spawn_block_picker(mut commands: Commands) {
             ..default()
         })
         .with_children(|parent| {
-            parent.spawn_bundle(NodeBundle {
-                style: Style {
-                    size: Size::new(Val::Percent(66.0), Val::Percent(66.0)),
-                    justify_content: JustifyContent::SpaceAround,
+            parent
+                .spawn_bundle(NodeBundle {
+                    style: Style {
+                        size: Size::new(Val::Percent(66.0), Val::Percent(66.0)),
+                        border: UiRect::all(Val::Px(5.0)),
+                        ..default()
+                    },
+                    color: Color::rgb(0.6, 0.6, 0.6).into(),
                     ..default()
-                },
-                color: Color::rgb(0.8, 0.8, 0.8).into(),
-                ..default()
-            });
+                })
+                .with_children(|parent| {
+                    parent.spawn_bundle(NodeBundle {
+                        style: Style {
+                            size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
+                            justify_content: JustifyContent::SpaceAround,
+                            ..default()
+                        },
+                        color: Color::rgb(0.8, 0.8, 0.8).into(),
+                        ..default()
+                    });
+                });
         })
         .insert(BlockPicker::default());
 }
