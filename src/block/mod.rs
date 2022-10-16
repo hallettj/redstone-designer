@@ -76,7 +76,7 @@ fn place_block(
                 &mut meshes,
                 &mut materials,
                 &mut line_materials,
-                "sandstone",
+                "iron_block",
                 transform,
             )
         }
