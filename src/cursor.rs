@@ -101,7 +101,7 @@ fn get_block_under_cursor(
         camera,
         camera_transform,
     );
-    let max_toi = 16.0 * BLOCKS;
+    let max_toi = 32.0 * BLOCKS;
     let solid = true;
     let groups = InteractionGroups::all();
     let filter = QueryFilter::new().groups(groups);
