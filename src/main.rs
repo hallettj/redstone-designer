@@ -1,6 +1,7 @@
 #![feature(option_result_contains)]
 
 mod block;
+mod block_picker;
 mod camera;
 mod constants;
 mod cursor;
@@ -11,6 +12,7 @@ mod user_input;
 use bevy::{prelude::*, render::texture::ImageSettings};
 use bevy_rapier3d::prelude::*;
 use block::BlockPlugin;
+use block_picker::BlockPickerPlugin;
 use camera::CameraPlugin;
 use cursor::CursorPlugin;
 use redstone::RedstonePlugin;
@@ -26,6 +28,7 @@ fn main() {
         .add_plugin(CursorPlugin)
         .add_plugin(CameraPlugin)
         .add_plugin(BlockPlugin)
+        .add_plugin(BlockPickerPlugin)
         .add_plugin(RedstonePlugin)
         .add_plugin(UserInputPlugin)
         .run();

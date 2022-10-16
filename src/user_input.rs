@@ -1,15 +1,21 @@
 use bevy::prelude::*;
 
+use crate::block_picker::BlockPicker;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum UICommand {
     PlaceBlock,
     DestroyBlock,
+    OpenBlockPicker,
+    CloseBlockPicker,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Action {
-    ApplyTool,
     ActivateTool(Tool),
+    Click,
+    ExitMode,
+    OpenBlockPicker,
 }
 
 #[derive(Clone, Debug)]
@@ -19,7 +25,7 @@ impl Default for KeyBindings {
     fn default() -> Self {
         KeyBindings(vec![
             (
-                Action::ApplyTool,
+                Action::Click,
                 Binding {
                     key: Key::Mouse(MouseButton::Left),
                     mode: BindingMode::Tap,
@@ -30,6 +36,20 @@ impl Default for KeyBindings {
                 Binding {
                     key: Key::Keyboard(KeyCode::X),
                     mode: BindingMode::Hold,
+                },
+            ),
+            (
+                Action::ExitMode,
+                Binding {
+                    key: Key::Keyboard(KeyCode::Escape),
+                    mode: BindingMode::Tap,
+                },
+            ),
+            (
+                Action::OpenBlockPicker,
+                Binding {
+                    key: Key::Keyboard(KeyCode::P),
+                    mode: BindingMode::Tap,
                 },
             ),
         ])
@@ -100,6 +120,7 @@ fn register_commands(
     bindings: Res<KeyBindings>,
     mouse: Res<Input<MouseButton>>,
     keyboard: Res<Input<KeyCode>>,
+    query_block_picker: Query<&BlockPicker>,
 ) {
     if !user_input.commands.is_empty() {
         user_input.commands = vec![];
@@ -110,7 +131,7 @@ fn register_commands(
     for (action, binding) in bindings.0.iter() {
         if is_binding_active(binding, &mouse, &keyboard) {
             match action {
-                Action::ApplyTool => {
+                Action::Click => {
                     let command = match active_tool {
                         Tool::Place => UICommand::PlaceBlock,
                         Tool::Destroy => UICommand::DestroyBlock,
@@ -123,12 +144,29 @@ fn register_commands(
                         user_input.last_active_tool = active_tool;
                     }
                 }
+                Action::ExitMode => {
+                    let picker = query_block_picker.single();
+                    if picker.is_open {
+                        user_input.commands.push(UICommand::CloseBlockPicker);
+                    }
+                }
+                Action::OpenBlockPicker => {
+                    let picker = query_block_picker.single();
+                    if !picker.is_open {
+                        user_input.commands.push(UICommand::OpenBlockPicker);
+                    } else {
+                        user_input.commands.push(UICommand::CloseBlockPicker);
+                    }
+                }
             }
         }
-        if binding_was_just_active(binding, &mouse, &keyboard) {
+        if hold_type_binding_was_just_active(binding, &mouse, &keyboard) {
             match action {
                 Action::ActivateTool(_) => {
                     user_input.active_tool = user_input.last_active_tool;
+                }
+                Action::OpenBlockPicker => {
+                    user_input.commands.push(UICommand::CloseBlockPicker);
                 }
                 _ => (),
             }
@@ -143,13 +181,13 @@ fn is_binding_active(
 ) -> bool {
     match (binding.key, binding.mode) {
         (Key::Keyboard(key_code), BindingMode::Tap) => keyboard.just_released(key_code),
-        (Key::Keyboard(key_code), BindingMode::Hold) => keyboard.pressed(key_code),
+        (Key::Keyboard(key_code), BindingMode::Hold) => keyboard.just_pressed(key_code),
         (Key::Mouse(button), BindingMode::Tap) => mouse.just_released(button),
-        (Key::Mouse(button), BindingMode::Hold) => mouse.pressed(button),
+        (Key::Mouse(button), BindingMode::Hold) => mouse.just_pressed(button),
     }
 }
 
-fn binding_was_just_active(
+fn hold_type_binding_was_just_active(
     binding: &Binding,
     mouse: &Res<Input<MouseButton>>,
     keyboard: &Res<Input<KeyCode>>,
