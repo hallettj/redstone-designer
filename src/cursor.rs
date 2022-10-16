@@ -63,7 +63,9 @@ fn current_block_and_place_block_transform(hit: EntityHit) -> (Entity, Transform
     (entity, transform)
 }
 
-/// Given a vector, returns a normal vector aligned to the closest of the x, y, or z axes.
+/// Given a vector, returns a normal vector aligned to the closest of the x, y, or z axes. This is
+/// probably not necessary. But it might help if the user clicks right on the corner of a collider
+/// or something.
 fn snap_to_axis(v: Vec3) -> Vec3 {
     let positive_axes = Vec3::AXES.iter().cloned();
     let negative_axes = Vec3::AXES.iter().map(|axis| axis.clone() * -1.0);

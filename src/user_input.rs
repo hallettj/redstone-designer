@@ -101,7 +101,10 @@ fn register_commands(
     mouse: Res<Input<MouseButton>>,
     keyboard: Res<Input<KeyCode>>,
 ) {
-    user_input.commands = vec![];
+    if !user_input.commands.is_empty() {
+        user_input.commands = vec![];
+    }
+
     let active_tool = user_input.active_tool;
 
     for (action, binding) in bindings.0.iter() {
