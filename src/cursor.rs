@@ -1,14 +1,16 @@
 use bevy::{prelude::*, render::camera::RenderTarget};
 use bevy_rapier3d::prelude::*;
 
-use crate::{camera::MainCamera, constants::BLOCKS, lines::LineMaterial};
+use crate::{
+    camera::MainCamera,
+    constants::{BLOCKS, PIXELS},
+};
 
 pub struct CursorPlugin;
 
 impl Plugin for CursorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(MaterialPlugin::<LineMaterial>::default())
-            .insert_resource(Cursor::default())
+        app.insert_resource(Cursor::default())
             .add_system_to_stage(CoreStage::PreUpdate, update_current_block);
     }
 }
@@ -28,11 +30,49 @@ fn update_current_block(
     windows: Res<Windows>,
     rapier_context: Res<RapierContext>,
     query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
-    // mut query_block_outlines: Query<(&mut Visibility, &Parent), With<BlockOutline>>,
 ) {
-    let hit = get_entity_under_cursor(windows, rapier_context, query_camera);
-    let hit_entity = hit.map(|h| h.entity);
-    cursor.current_block = hit_entity;
+    match get_block_under_cursor(windows, rapier_context, query_camera) {
+        Some(hit) => {
+            let (entity, transform) = current_block_and_place_block_transform(hit);
+            cursor.current_block = Some(entity);
+            cursor.place_block_transform = Some(transform);
+        }
+        None => {
+            cursor.current_block = None;
+            cursor.place_block_transform = None;
+        }
+    }
+}
+
+fn current_block_and_place_block_transform(hit: EntityHit) -> (Entity, Transform) {
+    let EntityHit {
+        entity,
+        intersection: RayIntersection { point, normal, .. },
+        ..
+    } = hit;
+
+    // Produce an offset that moves into the space of the next block in the grid in the direction
+    // of the vector. This assumes that the smallest possible selection box for a model is at least
+    // one pixel (which it is - Minecraft model sizes are given in integer pixel counts).
+    let offset = snap_to_axis(normal) * (15.0 * PIXELS);
+
+    // Translate from the clicked point in the direction of the normal, and snap to a corner of the
+    // block grid.
+    let transform = Transform::from_translation(((point + offset) / BLOCKS).floor() * BLOCKS);
+
+    (entity, transform)
+}
+
+/// Given a vector, returns a normal vector aligned to the closest of the x, y, or z axes.
+fn snap_to_axis(v: Vec3) -> Vec3 {
+    let positive_axes = Vec3::AXES.iter().cloned();
+    let negative_axes = Vec3::AXES.iter().map(|axis| axis.clone() * -1.0);
+    positive_axes
+        .chain(negative_axes)
+        .map(|axis| (axis, axis.dot(v)))
+        .reduce(|accum, pair| if pair.1 > accum.1 { pair } else { accum })
+        .unwrap()
+        .0
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -41,7 +81,7 @@ struct EntityHit {
     intersection: RayIntersection,
 }
 
-fn get_entity_under_cursor(
+fn get_block_under_cursor(
     windows: Res<Windows>,
     rapier_context: Res<RapierContext>,
     query_camera: Query<(&Camera, &GlobalTransform), With<MainCamera>>,
@@ -94,4 +134,77 @@ fn ray_from_screenspace(
     let ray_direction = (camera_transform.translation() - cursor_pos_world).normalize();
 
     (origin, ray_direction)
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy::prelude::*;
+    use bevy_rapier3d::{prelude::*, rapier::prelude::FeatureId};
+
+    use crate::constants::BLOCKS;
+
+    use super::{current_block_and_place_block_transform, EntityHit};
+
+    fn test_hit_intersection(point: Vec3, normal: Vec3) -> EntityHit {
+        EntityHit {
+            entity: Entity::from_raw(1),
+            intersection: RayIntersection {
+                toi: 10.0,
+                point,
+                normal,
+                feature: FeatureId::Unknown,
+            },
+        }
+    }
+
+    #[test]
+    fn computes_transform_for_block_placement() {
+        let test_cases = vec![
+            (
+                "east, full block",
+                test_hit_intersection(
+                    Vec3::new(1.0 * BLOCKS, 0.5 * BLOCKS, 0.2 * BLOCKS),
+                    Vec3::new(1.0, 1e-16, 0.0),
+                ),
+                Transform::from_xyz(1.0 * BLOCKS, 0.0, 0.0),
+            ),
+            (
+                "west, full block",
+                test_hit_intersection(
+                    Vec3::new(3.0 * BLOCKS, 0.5 * BLOCKS, 1.2 * BLOCKS),
+                    Vec3::new(-1.0, 1e-16, 0.0),
+                ),
+                Transform::from_xyz(2.0 * BLOCKS, 0.0, 1.0 * BLOCKS),
+            ),
+            (
+                "top, full block",
+                test_hit_intersection(
+                    Vec3::new(3.5 * BLOCKS, 1.0 * BLOCKS, 2.5 * BLOCKS),
+                    Vec3::new(0.0, 1.0, 0.0),
+                ),
+                Transform::from_xyz(3.0 * BLOCKS, 1.0 * BLOCKS, 2.0 * BLOCKS),
+            ),
+            (
+                "east, non-full block",
+                test_hit_intersection(
+                    Vec3::new(3.6 * BLOCKS, 0.5 * BLOCKS, 0.2 * BLOCKS),
+                    Vec3::new(1.0, 1e-16, 0.0),
+                ),
+                Transform::from_xyz(4.0 * BLOCKS, 0.0, 0.0),
+            ),
+            (
+                "west, non-full block",
+                test_hit_intersection(
+                    Vec3::new(3.4 * BLOCKS, 0.5 * BLOCKS, 1.2 * BLOCKS),
+                    Vec3::new(-1.0, 1e-16, 0.0),
+                ),
+                Transform::from_xyz(2.0 * BLOCKS, 0.0, 1.0 * BLOCKS),
+            ),
+        ];
+
+        for (label, hit, expected) in test_cases {
+            let (_, actual) = current_block_and_place_block_transform(hit);
+            assert_eq!(actual, expected, "places block: {}", label);
+        }
+    }
 }

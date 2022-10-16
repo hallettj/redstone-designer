@@ -39,7 +39,8 @@ pub struct BlockPlugin;
 
 impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(spawn_test_block)
+        app.add_plugin(MaterialPlugin::<LineMaterial>::default())
+            .add_startup_system(spawn_test_block)
             .add_system(highlight_block_on_hover)
             .add_system(place_block)
             .add_system(destroy_block);
@@ -55,9 +56,27 @@ fn highlight_block_on_hover(
     }
 }
 
-fn place_block(mut commands: Commands, user_input: Res<UserInput>, cursor: Res<Cursor>) {
+fn place_block(
+    user_input: Res<UserInput>,
+    cursor: Res<Cursor>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut line_materials: ResMut<Assets<LineMaterial>>,
+) {
     if user_input.sent_command(UICommand::PlaceBlock) {
-        println!("place block: @ {:?}", cursor.current_block);
+        if let Some(transform) = cursor.place_block_transform {
+            spawn_block(
+                &mut commands,
+                &asset_server,
+                &mut meshes,
+                &mut materials,
+                &mut line_materials,
+                "sandstone",
+                transform,
+            )
+        }
     }
 }
 
