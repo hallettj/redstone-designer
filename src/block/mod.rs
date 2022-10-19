@@ -2,7 +2,7 @@ mod bounding_box;
 
 use bevy::{
     prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology},
+    render::{mesh::Indices, render_resource::PrimitiveTopology, view::RenderLayers},
 };
 use minecraft_assets::{
     api::{AssetPack, ModelResolver},
@@ -118,6 +118,7 @@ pub fn spawn_block(
     block_model: &str,
     transform: Transform,
 ) {
+    // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
     let assets = AssetPack::at_path("assets/minecraft/");
     let models = assets.load_block_model_recursive(block_model).unwrap();
     let model = ModelResolver::resolve_model(models.iter());
@@ -131,10 +132,58 @@ pub fn spawn_block(
         .insert(bounding_box_to_collider(bounding_box))
         .with_children(|parent| {
             for element in elements.iter() {
-                spawn_element(parent, &asset_server, &mut meshes, &mut materials, element);
+                spawn_element(
+                    parent,
+                    &asset_server,
+                    &mut meshes,
+                    &mut materials,
+                    element,
+                    None as Option<RenderLayers>,
+                );
             }
             spawn_block_outline(parent, &mut meshes, &mut line_materials, bounding_box);
         });
+}
+
+/// Spawn a block to display in the block picker, not in the simulation world.
+/// TODO: rename this to be less similar to `spawn_block_preview`
+/// TODO: reuse this logic in `spawn_block`
+pub fn spawn_for_block_preview(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    block_model: &str,
+    transform: Transform,
+
+    // Component to insert in the entity, and into children.
+    recursive_component: Option<impl Component + Clone + std::fmt::Debug>,
+) -> Entity {
+    // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
+    let assets = AssetPack::at_path("assets/minecraft/");
+    let models = assets.load_block_model_recursive(block_model).unwrap();
+    let model = ModelResolver::resolve_model(models.iter());
+    let elements = model.elements.unwrap();
+    let mut block = commands.spawn_bundle(BlockBundle {
+        transform,
+        ..default()
+    });
+    block.with_children(|parent| {
+        for element in elements.iter() {
+            spawn_element(
+                parent,
+                &asset_server,
+                &mut meshes,
+                &mut materials,
+                element,
+                recursive_component.clone(),
+            );
+        }
+    });
+    if let Some(component) = recursive_component {
+        block.insert(component);
+    }
+    block.id()
 }
 
 /// This is the black wireframe that is displayed around a block on hover.
@@ -162,16 +211,20 @@ fn spawn_element(
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
     element: &Element,
+    component: Option<impl Component + Clone>,
 ) {
     for face in BLOCK_FACES {
         if let Some(mesh) = mesh_for_face(&element, face) {
-            // TODO: memoize materials
+            // TODO: would there be a benefit to memoizing materials?
             let material = materials.add(material_for_face(asset_server, &element, face));
-            parent.spawn_bundle(PbrBundle {
+            let mut element = parent.spawn_bundle(PbrBundle {
                 mesh: meshes.add(mesh),
                 material,
                 ..default()
             });
+            if let Some(component) = component.clone() {
+                element.insert(component);
+            }
         }
     }
 }
