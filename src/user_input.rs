@@ -15,7 +15,7 @@ pub enum Action {
     ActivateTool(Tool),
     Click,
     ExitMode,
-    OpenBlockPicker,
+    ToggleBlockPicker,
 }
 
 #[derive(Clone, Debug)]
@@ -28,28 +28,32 @@ impl Default for KeyBindings {
                 Action::Click,
                 Binding {
                     key: Key::Mouse(MouseButton::Left),
-                    mode: BindingMode::Tap,
+                    binding_mode: BindingMode::Tap,
+                    modes: vec![Mode::Normal],
                 },
             ),
             (
                 Action::ActivateTool(Tool::Destroy),
                 Binding {
                     key: Key::Keyboard(KeyCode::X),
-                    mode: BindingMode::Hold,
+                    binding_mode: BindingMode::Hold,
+                    modes: vec![Mode::Normal],
                 },
             ),
             (
                 Action::ExitMode,
                 Binding {
                     key: Key::Keyboard(KeyCode::Escape),
-                    mode: BindingMode::Tap,
+                    binding_mode: BindingMode::Tap,
+                    modes: vec![Mode::UI],
                 },
             ),
             (
-                Action::OpenBlockPicker,
+                Action::ToggleBlockPicker,
                 Binding {
                     key: Key::Keyboard(KeyCode::P),
-                    mode: BindingMode::Tap,
+                    binding_mode: BindingMode::Tap,
+                    modes: vec![Mode::Normal, Mode::UI],
                 },
             ),
         ])
@@ -67,13 +71,28 @@ const DEFAULT_TOOL: Tool = Tool::Place;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Binding {
     key: Key,
-    mode: BindingMode,
+    binding_mode: BindingMode,
+    modes: Vec<Mode>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum BindingMode {
+    /// In this mode tapping a key or mouse button activates the binding.
     Tap,
+
+    /// In this mode the binding is active when holding a key or mouse button. For toggleable
+    /// states, like switching to the destroy tool, or opening the block picker, the state is
+    /// active while the bound key is held, and inactivated when the key is released.
     Hold,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Mode {
+    /// Normal world interaction; e.g. clicking to place blocks against other blocks
+    Normal,
+
+    /// A UI window is open, such as the block picker
+    UI,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -129,7 +148,13 @@ fn register_commands(
     let active_tool = user_input.active_tool;
 
     for (action, binding) in bindings.0.iter() {
-        if is_binding_active(binding, &mouse, &keyboard) {
+        let picker = query_block_picker.single();
+        let mode = if !picker.is_open {
+            Mode::Normal
+        } else {
+            Mode::UI
+        };
+        if is_binding_active(binding, mode, &mouse, &keyboard) {
             match action {
                 Action::Click => {
                     let command = match active_tool {
@@ -145,12 +170,11 @@ fn register_commands(
                     }
                 }
                 Action::ExitMode => {
-                    let picker = query_block_picker.single();
                     if picker.is_open {
                         user_input.commands.push(UICommand::CloseBlockPicker);
                     }
                 }
-                Action::OpenBlockPicker => {
+                Action::ToggleBlockPicker => {
                     let picker = query_block_picker.single();
                     if !picker.is_open {
                         user_input.commands.push(UICommand::OpenBlockPicker);
@@ -165,7 +189,7 @@ fn register_commands(
                 Action::ActivateTool(_) => {
                     user_input.active_tool = user_input.last_active_tool;
                 }
-                Action::OpenBlockPicker => {
+                Action::ToggleBlockPicker => {
                     user_input.commands.push(UICommand::CloseBlockPicker);
                 }
                 _ => (),
@@ -176,10 +200,14 @@ fn register_commands(
 
 fn is_binding_active(
     binding: &Binding,
+    mode: Mode,
     mouse: &Res<Input<MouseButton>>,
     keyboard: &Res<Input<KeyCode>>,
 ) -> bool {
-    match (binding.key, binding.mode) {
+    if !binding.modes.iter().any(|m| m == &mode) {
+        return false;
+    }
+    match (binding.key, binding.binding_mode) {
         (Key::Keyboard(key_code), BindingMode::Tap) => keyboard.just_released(key_code),
         (Key::Keyboard(key_code), BindingMode::Hold) => keyboard.just_pressed(key_code),
         (Key::Mouse(button), BindingMode::Tap) => mouse.just_released(button),
@@ -192,7 +220,7 @@ fn hold_type_binding_was_just_active(
     mouse: &Res<Input<MouseButton>>,
     keyboard: &Res<Input<KeyCode>>,
 ) -> bool {
-    match (binding.key, binding.mode) {
+    match (binding.key, binding.binding_mode) {
         (Key::Keyboard(key_code), BindingMode::Hold) => keyboard.just_released(key_code),
         (Key::Mouse(button), BindingMode::Hold) => mouse.just_released(button),
         (_, BindingMode::Tap) => false,
