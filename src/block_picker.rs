@@ -15,7 +15,7 @@ use crate::{
     user_input::{UICommand, UserInput},
 };
 
-const BLOCK_PREVIEW_SIZE: u32 = 150; // px
+const BLOCK_PREVIEW_SIZE: u32 = 100; // px
 
 const PICKER_BACKGROUND_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
 
@@ -88,7 +88,8 @@ fn spawn_block_picker(
                         .spawn_bundle(NodeBundle {
                             style: Style {
                                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
-                                justify_content: JustifyContent::SpaceAround,
+                                align_items: AlignItems::FlexEnd,
+                                justify_content: JustifyContent::FlexStart,
                                 ..default()
                             },
                             color: PICKER_BACKGROUND_COLOR.into(),
@@ -103,6 +104,11 @@ fn spawn_block_picker(
                                             Val::Px(BLOCK_PREVIEW_SIZE as f32),
                                             Val::Px(BLOCK_PREVIEW_SIZE as f32),
                                         ),
+                                        margin: UiRect {
+                                            top: Val::Px(6.0),
+                                            left: Val::Px(6.0),
+                                            ..default()
+                                        },
                                         ..default()
                                     },
                                     ..default()
@@ -188,7 +194,7 @@ fn spawn_block_preview(
                 ..default()
             },
             projection: Projection::Orthographic(OrthographicProjection {
-                scale: 0.16, // smaller numbers here make the block look bigger
+                scale: 24.0 / BLOCK_PREVIEW_SIZE as f32, // smaller numbers here make the block look bigger
                 ..default()
             }),
             transform: Transform::from_translation(
