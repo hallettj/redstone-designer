@@ -23,7 +23,7 @@ Assets should be unpacked under the `assets/minecraft/` directory in this
 project. If you have Minecraft installed in the usual location you can do that
 with this command:
 
-    $ unzip ~/minecraft/versions/1.19.2/1.19.2.jar 'assets/**/*' -d assets/minecraft/
+    $ unzip ~/.minecraft/versions/1.19.2/1.19.2.jar 'assets/**/*' -d assets/minecraft/
 
 ## Running
 
