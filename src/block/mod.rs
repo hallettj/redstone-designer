@@ -10,6 +10,7 @@ use minecraft_assets::{
 };
 
 use crate::{
+    block_picker::SelectedBlockType,
     constants::{BLOCKS, BLOCK_FACES},
     cursor::Cursor,
     lines::LineMaterial,
@@ -60,6 +61,7 @@ fn highlight_block_on_hover(
 }
 
 fn place_block(
+    selected: Res<SelectedBlockType>,
     user_input: Res<UserInput>,
     cursor: Res<Cursor>,
     mut commands: Commands,
@@ -76,7 +78,7 @@ fn place_block(
                 &mut meshes,
                 &mut materials,
                 &mut line_materials,
-                "iron_block",
+                selected.block_type,
                 transform,
             )
         }

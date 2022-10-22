@@ -26,14 +26,22 @@ pub struct BlockPickerPlugin;
 
 impl Plugin for BlockPickerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(spawn_block_picker)
-            .add_system(show_block_picker)
-            .add_system(hide_block_picker)
-            .add_system(button_system);
+        app.insert_resource(SelectedBlockType {
+            block_type: BLOCK_PALETTE[0],
+        })
+        .add_startup_system(spawn_block_picker)
+        .add_system(show_block_picker)
+        .add_system(hide_block_picker)
+        .add_system(button_system);
     }
 }
 
-#[derive(Component, Default)]
+#[derive(Debug)]
+pub struct SelectedBlockType {
+    pub block_type: &'static str,
+}
+
+#[derive(Component, Debug, Default)]
 pub struct BlockPicker {
     pub is_open: bool,
 }
@@ -250,16 +258,18 @@ fn hide_block_picker(user_input: Res<UserInput>, mut query: Query<(&mut BlockPic
 }
 
 fn button_system(
-    mut interaction_query: Query<
-        (&Interaction, &BlockPickerButton, &mut UiColor),
-        Changed<Interaction>,
-    >,
+    mut selected: ResMut<SelectedBlockType>,
+    mut picker_query: Query<(&mut BlockPicker, &mut Style)>, // TODO: close via event instead
+    mut button_query: Query<(&Interaction, &BlockPickerButton, &mut UiColor), Changed<Interaction>>,
 ) {
-    for (interaction, button, mut color) in &mut interaction_query {
+    for (interaction, button, mut color) in &mut button_query {
         match *interaction {
             Interaction::Clicked => {
-                println!("clicked {:?}", button.block_type);
                 *color = PRESSED_BUTTON_COLOR.into();
+                selected.block_type = button.block_type;
+                let (mut picker, mut picker_style) = picker_query.single_mut();
+                picker.is_open = false;
+                picker_style.display = Display::None;
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON_COLOR.into();
