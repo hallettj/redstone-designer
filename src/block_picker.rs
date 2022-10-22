@@ -18,6 +18,9 @@ use crate::{
 const BLOCK_PREVIEW_SIZE: u32 = 100; // px
 
 const PICKER_BACKGROUND_COLOR: Color = Color::rgb(0.8, 0.8, 0.8);
+const NORMAL_BUTTON_COLOR: Color = Color::rgb(0.95, 0.95, 0.95);
+const HOVERED_BUTTON_COLOR: Color = Color::rgb(1.0, 1.0, 1.0);
+const PRESSED_BUTTON_COLOR: Color = Color::rgb(0.98, 0.98, 0.98);
 
 pub struct BlockPickerPlugin;
 
@@ -25,7 +28,8 @@ impl Plugin for BlockPickerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(spawn_block_picker)
             .add_system(show_block_picker)
-            .add_system(hide_block_picker);
+            .add_system(hide_block_picker)
+            .add_system(button_system);
     }
 }
 
@@ -36,6 +40,11 @@ pub struct BlockPicker {
 
 #[derive(Component)]
 struct BlockPreview;
+
+#[derive(Component, Copy, Clone, Debug, Eq, PartialEq)]
+struct BlockPickerButton {
+    block_type: &'static str,
+}
 
 fn spawn_block_picker(
     mut commands: Commands,
@@ -96,23 +105,32 @@ fn spawn_block_picker(
                             ..default()
                         })
                         .with_children(|parent| {
-                            for (index, _) in BLOCK_PALETTE.iter().enumerate() {
-                                parent.spawn_bundle(ImageBundle {
-                                    image: block_preview_image_handles[index].clone().into(),
-                                    style: Style {
-                                        size: Size::new(
-                                            Val::Px(BLOCK_PREVIEW_SIZE as f32),
-                                            Val::Px(BLOCK_PREVIEW_SIZE as f32),
-                                        ),
-                                        margin: UiRect {
-                                            top: Val::Px(6.0),
-                                            left: Val::Px(6.0),
+                            for (index, block_type) in BLOCK_PALETTE.iter().enumerate() {
+                                parent
+                                    .spawn_bundle(ButtonBundle {
+                                        image: block_preview_image_handles[index].clone().into(),
+                                        style: Style {
+                                            size: Size::new(
+                                                Val::Px(BLOCK_PREVIEW_SIZE as f32),
+                                                Val::Px(BLOCK_PREVIEW_SIZE as f32),
+                                            ),
+                                            margin: UiRect {
+                                                top: Val::Px(6.0),
+                                                left: Val::Px(6.0),
+                                                ..default()
+                                            },
                                             ..default()
                                         },
+                                        color: NORMAL_BUTTON_COLOR.into(),
                                         ..default()
-                                    },
-                                    ..default()
-                                });
+                                    })
+                                    .insert(BlockPickerButton { block_type })
+                                    .with_children(|parent| {
+                                        // It seems that we need to have a child for the button to
+                                        // work.
+                                        parent
+                                            .spawn_bundle(TextBundle::from_section("", default()));
+                                    });
                             }
                         });
                 });
@@ -184,7 +202,7 @@ fn spawn_block_preview(
     commands
         .spawn_bundle(Camera3dBundle {
             camera_3d: Camera3d {
-                clear_color: ClearColorConfig::Custom(PICKER_BACKGROUND_COLOR),
+                clear_color: ClearColorConfig::Custom(Color::rgba(1.0, 1.0, 1.0, 0.0)),
                 ..default()
             },
             camera: Camera {
@@ -228,5 +246,27 @@ fn hide_block_picker(user_input: Res<UserInput>, mut query: Query<(&mut BlockPic
         let (mut picker, mut picker_style) = query.single_mut();
         picker.is_open = false;
         picker_style.display = Display::None;
+    }
+}
+
+fn button_system(
+    mut interaction_query: Query<
+        (&Interaction, &BlockPickerButton, &mut UiColor),
+        Changed<Interaction>,
+    >,
+) {
+    for (interaction, button, mut color) in &mut interaction_query {
+        match *interaction {
+            Interaction::Clicked => {
+                println!("clicked {:?}", button.block_type);
+                *color = PRESSED_BUTTON_COLOR.into();
+            }
+            Interaction::Hovered => {
+                *color = HOVERED_BUTTON_COLOR.into();
+            }
+            Interaction::None => {
+                *color = NORMAL_BUTTON_COLOR.into();
+            }
+        }
     }
 }
