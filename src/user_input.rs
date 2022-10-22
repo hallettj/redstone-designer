@@ -3,11 +3,15 @@ use bevy::prelude::*;
 use crate::block_picker::BlockPicker;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum UICommand {
+pub enum UiCommand {
     PlaceBlock,
     DestroyBlock,
     OpenBlockPicker,
     CloseBlockPicker,
+}
+
+pub fn sent_command(mut ev_ui_command: EventReader<UiCommand>, command: UiCommand) -> bool {
+    ev_ui_command.iter().any(|c| c == &command)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -103,21 +107,13 @@ pub enum Key {
 
 #[derive(Debug)]
 pub struct UserInput {
-    pub commands: Vec<UICommand>,
     active_tool: Tool,
     last_active_tool: Tool,
-}
-
-impl UserInput {
-    pub fn sent_command(&self, command: UICommand) -> bool {
-        self.commands.iter().any(|c| c == &command)
-    }
 }
 
 impl Default for UserInput {
     fn default() -> Self {
         UserInput {
-            commands: vec![],
             active_tool: DEFAULT_TOOL,
             last_active_tool: DEFAULT_TOOL,
         }
@@ -130,21 +126,19 @@ impl Plugin for UserInputPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(KeyBindings::default())
             .insert_resource(UserInput::default())
+            .add_event::<UiCommand>()
             .add_system_to_stage(CoreStage::PreUpdate, register_commands);
     }
 }
 
 fn register_commands(
+    mut ev_ui_command: EventWriter<UiCommand>,
     mut user_input: ResMut<UserInput>,
     bindings: Res<KeyBindings>,
     mouse: Res<Input<MouseButton>>,
     keyboard: Res<Input<KeyCode>>,
     query_block_picker: Query<&BlockPicker>,
 ) {
-    if !user_input.commands.is_empty() {
-        user_input.commands = vec![];
-    }
-
     let active_tool = user_input.active_tool;
 
     for (action, binding) in bindings.0.iter() {
@@ -158,10 +152,10 @@ fn register_commands(
             match action {
                 Action::Click => {
                     let command = match active_tool {
-                        Tool::Place => UICommand::PlaceBlock,
-                        Tool::Destroy => UICommand::DestroyBlock,
+                        Tool::Place => UiCommand::PlaceBlock,
+                        Tool::Destroy => UiCommand::DestroyBlock,
                     };
-                    user_input.commands.push(command);
+                    ev_ui_command.send(command);
                 }
                 Action::ActivateTool(tool) => {
                     user_input.active_tool = tool.clone();
@@ -171,15 +165,15 @@ fn register_commands(
                 }
                 Action::ExitMode => {
                     if picker.is_open {
-                        user_input.commands.push(UICommand::CloseBlockPicker);
+                        ev_ui_command.send(UiCommand::CloseBlockPicker);
                     }
                 }
                 Action::ToggleBlockPicker => {
                     let picker = query_block_picker.single();
                     if !picker.is_open {
-                        user_input.commands.push(UICommand::OpenBlockPicker);
+                        ev_ui_command.send(UiCommand::OpenBlockPicker);
                     } else {
-                        user_input.commands.push(UICommand::CloseBlockPicker);
+                        ev_ui_command.send(UiCommand::CloseBlockPicker);
                     }
                 }
             }
@@ -190,7 +184,7 @@ fn register_commands(
                     user_input.active_tool = user_input.last_active_tool;
                 }
                 Action::ToggleBlockPicker => {
-                    user_input.commands.push(UICommand::CloseBlockPicker);
+                    ev_ui_command.send(UiCommand::CloseBlockPicker);
                 }
                 _ => (),
             }

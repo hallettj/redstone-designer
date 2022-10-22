@@ -12,7 +12,7 @@ use bevy::{
 use crate::{
     block::spawn_for_block_preview,
     constants::{BLOCKS, BLOCK_PALETTE, BLOCK_PREVIEW_LAYER},
-    user_input::{UICommand, UserInput},
+    user_input::{sent_command, UiCommand},
 };
 
 const BLOCK_PREVIEW_SIZE: u32 = 100; // px
@@ -32,7 +32,7 @@ impl Plugin for BlockPickerPlugin {
         .add_startup_system(spawn_block_picker)
         .add_system(show_block_picker)
         .add_system(hide_block_picker)
-        .add_system(button_system);
+        .add_system(button_system.before(hide_block_picker));
     }
 }
 
@@ -239,8 +239,11 @@ fn spawn_block_preview(
     image_handle
 }
 
-fn show_block_picker(user_input: Res<UserInput>, mut query: Query<(&mut BlockPicker, &mut Style)>) {
-    if user_input.sent_command(UICommand::OpenBlockPicker) {
+fn show_block_picker(
+    user_input: EventReader<UiCommand>,
+    mut query: Query<(&mut BlockPicker, &mut Style)>,
+) {
+    if sent_command(user_input, UiCommand::OpenBlockPicker) {
         let (mut picker, mut picker_style) = query.single_mut();
         picker.is_open = true;
         picker_style.display = Display::Flex;
@@ -249,8 +252,11 @@ fn show_block_picker(user_input: Res<UserInput>, mut query: Query<(&mut BlockPic
 
 // TODO: Do we want to hide/disable block previews? Do they render when the texture output is not
 // visible?
-fn hide_block_picker(user_input: Res<UserInput>, mut query: Query<(&mut BlockPicker, &mut Style)>) {
-    if user_input.sent_command(UICommand::CloseBlockPicker) {
+fn hide_block_picker(
+    user_input: EventReader<UiCommand>,
+    mut query: Query<(&mut BlockPicker, &mut Style)>,
+) {
+    if sent_command(user_input, UiCommand::CloseBlockPicker) {
         let (mut picker, mut picker_style) = query.single_mut();
         picker.is_open = false;
         picker_style.display = Display::None;
@@ -258,18 +264,16 @@ fn hide_block_picker(user_input: Res<UserInput>, mut query: Query<(&mut BlockPic
 }
 
 fn button_system(
-    mut selected: ResMut<SelectedBlockType>,
-    mut picker_query: Query<(&mut BlockPicker, &mut Style)>, // TODO: close via event instead
     mut button_query: Query<(&Interaction, &BlockPickerButton, &mut UiColor), Changed<Interaction>>,
+    mut selected: ResMut<SelectedBlockType>,
+    mut ev_ui_command: EventWriter<UiCommand>,
 ) {
     for (interaction, button, mut color) in &mut button_query {
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON_COLOR.into();
                 selected.block_type = button.block_type;
-                let (mut picker, mut picker_style) = picker_query.single_mut();
-                picker.is_open = false;
-                picker_style.display = Display::None;
+                ev_ui_command.send(UiCommand::CloseBlockPicker);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON_COLOR.into();
