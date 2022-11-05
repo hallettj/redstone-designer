@@ -22,9 +22,8 @@ pub const BLOCK_FACES: [BlockFace; 6] = [
     BlockFace::East,
 ];
 
-/// Block face enum members paired with unit vectors indicating which side of a block the face
-/// appears on relative to the center of the block.
-pub const BLOCK_FACE_DIRECTIONS: [(BlockFace, Vec3); 6] = [
+/// Block face enum members paired with their normal vectors
+pub const BLOCK_FACE_NORMALS: [(BlockFace, Vec3); 6] = [
     (BlockFace::Down, Vec3::NEG_Y),
     (BlockFace::Up, Vec3::Y),
     (BlockFace::North, Vec3::NEG_Z),

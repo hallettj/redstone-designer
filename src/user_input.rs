@@ -1,19 +1,15 @@
 use bevy::{prelude::*, utils::HashSet};
 
+use crate::util::RelativeDirection;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum UiCommand {
     PlaceBlock,
     DestroyBlock,
     OpenBlockPicker,
     CloseBlockPicker,
-    RotateBlock(RelativeDir),
+    RotateBlock(Option<RelativeDirection>),
     ToggleBlockPicker,
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub enum RelativeDir {
-    Left,
-    Right,
 }
 
 pub fn sent_command(mut ev_ui_command: EventReader<UiCommand>, command: UiCommand) -> bool {
@@ -24,7 +20,7 @@ pub fn sent_command(mut ev_ui_command: EventReader<UiCommand>, command: UiComman
 pub enum Action {
     ActivateTool(Tool),
     ExitMode,
-    RotateBlock(RelativeDir),
+    RotateBlock(RelativeDirection),
     ToggleBlockPicker,
     UseActiveTool,
 }
@@ -62,14 +58,38 @@ impl Default for KeyBindings {
             },
             // PlacingBlock mode
             Binding {
-                action: Action::RotateBlock(RelativeDir::Left),
+                action: Action::RotateBlock(RelativeDirection::Left),
                 key: Key::Keyboard(KeyCode::Left),
                 binding_style: BindingStyle::Tap,
                 modes: vec![Mode::PlacingBlock],
             },
             Binding {
-                action: Action::RotateBlock(RelativeDir::Right),
+                action: Action::RotateBlock(RelativeDirection::Right),
                 key: Key::Keyboard(KeyCode::Right),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::PlacingBlock],
+            },
+            Binding {
+                action: Action::RotateBlock(RelativeDirection::Up),
+                key: Key::Keyboard(KeyCode::Up),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::PlacingBlock],
+            },
+            Binding {
+                action: Action::RotateBlock(RelativeDirection::Down),
+                key: Key::Keyboard(KeyCode::Down),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::PlacingBlock],
+            },
+            Binding {
+                action: Action::RotateBlock(RelativeDirection::Forward),
+                key: Key::Keyboard(KeyCode::Home),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::PlacingBlock],
+            },
+            Binding {
+                action: Action::RotateBlock(RelativeDirection::Back),
+                key: Key::Keyboard(KeyCode::End),
                 binding_style: BindingStyle::Tap,
                 modes: vec![Mode::PlacingBlock],
             },
@@ -231,7 +251,7 @@ fn dispatch_action(
             ev_ui_command.send(UiCommand::CloseBlockPicker);
         }
         Action::RotateBlock(dir) => {
-            ev_ui_command.send(UiCommand::RotateBlock(dir));
+            ev_ui_command.send(UiCommand::RotateBlock(Some(dir)));
         }
         Action::ToggleBlockPicker => {
             ev_ui_command.send(UiCommand::ToggleBlockPicker);
@@ -257,7 +277,7 @@ fn dispatch_action_start(
             selected_tool.push_tool(tool);
         }
         Action::ExitMode => (),
-        Action::RotateBlock(_) => (),
+        Action::RotateBlock(dir) => ev_ui_command.send(UiCommand::RotateBlock(Some(dir))),
         Action::ToggleBlockPicker => {
             ev_ui_command.send(UiCommand::OpenBlockPicker);
         }
@@ -280,7 +300,7 @@ fn dispatch_action_finish(
         }
         Action::ActivateTool(_) => selected_tool.pop_tool(),
         Action::ExitMode => dispatch_action(ev_ui_command, state, selected_tool, action),
-        Action::RotateBlock(_) => dispatch_action(ev_ui_command, state, selected_tool, action),
+        Action::RotateBlock(_) => ev_ui_command.send(UiCommand::RotateBlock(None)),
         Action::ToggleBlockPicker => {
             ev_ui_command.send(UiCommand::CloseBlockPicker);
         }

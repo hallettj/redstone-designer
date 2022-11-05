@@ -1,12 +1,31 @@
 use crate::block_picker::SelectedBlockType;
+use crate::camera::MainCamera;
 use crate::cursor::Cursor;
 use crate::lines::LineMaterial;
 use crate::user_input::{sent_command, UiCommand};
+use crate::util::{vec_to_block_face, HasRelativeDirection};
 use bevy::prelude::*;
+use minecraft_assets::schemas::models::BlockFace;
 
 use super::spawn_block::spawn_block;
 
-pub fn place_block(
+pub struct PlacingBlockPlugin;
+
+impl Plugin for PlacingBlockPlugin {
+    fn build(&self, app: &mut App) {
+        app.insert_resource(BlockRotation::default())
+            .add_system(place_block)
+            .add_system(rotate_block)
+            .add_system(destroy_block);
+    }
+}
+
+#[derive(Debug, Default)]
+struct BlockRotation {
+    direction: Option<BlockFace>,
+}
+
+fn place_block(
     selected: Res<SelectedBlockType>,
     user_input: EventReader<UiCommand>,
     cursor: Res<Cursor>,
@@ -17,6 +36,7 @@ pub fn place_block(
     mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
     if sent_command(user_input, UiCommand::PlaceBlock) {
+        // let init_state
         if let Some(transform) = cursor.place_block_transform {
             spawn_block(
                 &mut commands,
@@ -31,11 +51,27 @@ pub fn place_block(
     }
 }
 
-pub fn destroy_block(
-    mut commands: Commands,
-    user_input: EventReader<UiCommand>,
-    cursor: Res<Cursor>,
+fn rotate_block(
+    mut user_input: EventReader<UiCommand>,
+    mut block_rotation: ResMut<BlockRotation>,
+    query_camera: Query<&Transform, With<MainCamera>>,
 ) {
+    for command in user_input.iter() {
+        match command {
+            UiCommand::RotateBlock(Some(dir)) => {
+                let camera_transform = query_camera.get_single().unwrap();
+                let face = vec_to_block_face(camera_transform.to_my(*dir));
+                block_rotation.direction = Some(face);
+            }
+            UiCommand::RotateBlock(None) => {
+                block_rotation.direction = None;
+            }
+            _ => {}
+        }
+    }
+}
+
+fn destroy_block(mut commands: Commands, user_input: EventReader<UiCommand>, cursor: Res<Cursor>) {
     if sent_command(user_input, UiCommand::DestroyBlock) {
         if let Some(block) = cursor.current_block {
             commands.entity(block).despawn_recursive();
