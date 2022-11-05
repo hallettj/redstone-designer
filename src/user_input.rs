@@ -6,7 +6,14 @@ pub enum UiCommand {
     DestroyBlock,
     OpenBlockPicker,
     CloseBlockPicker,
+    RotateBlock(RelativeDir),
     ToggleBlockPicker,
+}
+
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum RelativeDir {
+    Left,
+    Right,
 }
 
 pub fn sent_command(mut ev_ui_command: EventReader<UiCommand>, command: UiCommand) -> bool {
@@ -17,6 +24,7 @@ pub fn sent_command(mut ev_ui_command: EventReader<UiCommand>, command: UiComman
 pub enum Action {
     ActivateTool(Tool),
     ExitMode,
+    RotateBlock(RelativeDir),
     ToggleBlockPicker,
     UseActiveTool,
 }
@@ -27,6 +35,7 @@ pub struct KeyBindings(Vec<Binding>);
 impl Default for KeyBindings {
     fn default() -> Self {
         KeyBindings(vec![
+            // Normal mode
             Binding {
                 action: Action::UseActiveTool,
                 key: Key::Mouse(MouseButton::Left),
@@ -50,6 +59,19 @@ impl Default for KeyBindings {
                 key: Key::Keyboard(KeyCode::P),
                 binding_style: BindingStyle::Tap,
                 modes: vec![Mode::Normal],
+            },
+            // PlacingBlock mode
+            Binding {
+                action: Action::RotateBlock(RelativeDir::Left),
+                key: Key::Keyboard(KeyCode::Left),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::PlacingBlock],
+            },
+            Binding {
+                action: Action::RotateBlock(RelativeDir::Right),
+                key: Key::Keyboard(KeyCode::Right),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::PlacingBlock],
             },
         ])
     }
@@ -208,6 +230,9 @@ fn dispatch_action(
         Action::ExitMode => {
             ev_ui_command.send(UiCommand::CloseBlockPicker);
         }
+        Action::RotateBlock(dir) => {
+            ev_ui_command.send(UiCommand::RotateBlock(dir));
+        }
         Action::ToggleBlockPicker => {
             ev_ui_command.send(UiCommand::ToggleBlockPicker);
         }
@@ -232,6 +257,7 @@ fn dispatch_action_start(
             selected_tool.push_tool(tool);
         }
         Action::ExitMode => (),
+        Action::RotateBlock(_) => (),
         Action::ToggleBlockPicker => {
             ev_ui_command.send(UiCommand::OpenBlockPicker);
         }
@@ -254,6 +280,7 @@ fn dispatch_action_finish(
         }
         Action::ActivateTool(_) => selected_tool.pop_tool(),
         Action::ExitMode => dispatch_action(ev_ui_command, state, selected_tool, action),
+        Action::RotateBlock(_) => dispatch_action(ev_ui_command, state, selected_tool, action),
         Action::ToggleBlockPicker => {
             ev_ui_command.send(UiCommand::CloseBlockPicker);
         }
