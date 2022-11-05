@@ -1,7 +1,8 @@
+use anyhow::{anyhow, Context};
 use bevy::render::view::RenderLayers;
 use minecraft_assets::schemas::models::BlockFace;
 
-use crate::block::block_state::{BlockState, Repeater};
+use crate::block::block_state::BlockState;
 
 /// Unit of distance. The model scale in use sets 1.0 unit of distance in the render space to be
 /// one Minecraft "pixel". A Minecraft block is 16 pixels.
@@ -21,19 +22,24 @@ pub const BLOCK_FACES: [BlockFace; 6] = [
     BlockFace::East,
 ];
 
-pub const BLOCK_PALETTE: [(&'static str, BlockState); 3] = [
-    ("iron_block", BlockState::Stateless),
+/// Available block types paired with initial state.
+pub const BLOCK_PALETTE: [(&'static str, &'static str); 3] = [
+    ("iron_block", ""),
     (
         "repeater",
-        BlockState::Repeater(Repeater {
-            facing: BlockFace::South,
-            powered: true,
-            delay: 1,
-            locked: false,
-        }),
+        "delay=1,facing=south,locked=false,powered=false",
     ),
-    ("sandstone", BlockState::Stateless),
+    ("sandstone", ""),
 ];
+
+pub fn block_from_palette(block_type: &str) -> (&'static str, BlockState) {
+    let (block_type, initial_state) = BLOCK_PALETTE
+        .iter()
+        .find(|(bt, _)| bt == &block_type)
+        .context(anyhow!("block not found in palette, {:?}", block_type))
+        .unwrap();
+    (block_type, BlockState::new(initial_state))
+}
 
 /// Blocks previews for the block picker are rendered to textures via a camera in this layer.
 /// Cameras and other entities may be associated with one or more layers; a camera will only render

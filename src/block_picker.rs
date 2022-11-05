@@ -12,7 +12,7 @@ use bevy::{
 
 use crate::{
     block::{block_state::BlockState, spawn_block_preview_for_block_picker},
-    constants::{BLOCKS, BLOCK_PALETTE, BLOCK_PREVIEW_LAYER},
+    constants::{block_from_palette, BLOCKS, BLOCK_PALETTE, BLOCK_PREVIEW_LAYER},
     user_input::{sent_command, UiCommand},
 };
 
@@ -28,8 +28,7 @@ pub struct BlockPickerPlugin;
 impl Plugin for BlockPickerPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SelectedBlockType {
-            block_type: BLOCK_PALETTE[0].0,
-            initial_state: &BLOCK_PALETTE[0].1,
+            block: block_from_palette(BLOCK_PALETTE[0].0),
         })
         .add_startup_system(spawn_block_picker)
         .add_system(show_block_picker)
@@ -40,8 +39,7 @@ impl Plugin for BlockPickerPlugin {
 
 #[derive(Debug)]
 pub struct SelectedBlockType {
-    pub block_type: &'static str,
-    pub initial_state: &'static BlockState,
+    pub block: (&'static str, BlockState),
 }
 
 #[derive(Component, Debug, Default)]
@@ -52,9 +50,9 @@ pub struct BlockPicker {
 #[derive(Component)]
 struct BlockPreview;
 
-#[derive(Component, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Component, Clone, Debug, PartialEq)]
 struct BlockPickerButton {
-    block_type: &'static str,
+    block: (&'static str, BlockState),
 }
 
 fn spawn_block_picker(
@@ -136,7 +134,9 @@ fn spawn_block_picker(
                                         color: NORMAL_BUTTON_COLOR.into(),
                                         ..default()
                                     })
-                                    .insert(BlockPickerButton { block_type })
+                                    .insert(BlockPickerButton {
+                                        block: block_from_palette(block_type),
+                                    })
                                     .with_children(|parent| {
                                         // It seems that we need to have a child for the button to
                                         // work.
@@ -276,7 +276,7 @@ fn button_system(
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON_COLOR.into();
-                selected.block_type = button.block_type;
+                selected.block = button.block.clone();
                 ev_ui_command.send(UiCommand::CloseBlockPicker);
             }
             Interaction::Hovered => {

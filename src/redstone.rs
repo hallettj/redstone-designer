@@ -1,6 +1,6 @@
 use crate::{
     block::spawn_block,
-    constants::{BLOCKS, BLOCK_PALETTE},
+    constants::{block_from_palette, BLOCKS},
     lines::LineMaterial,
 };
 use bevy::prelude::*;
@@ -21,11 +21,7 @@ fn setup_floor(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
-    let block_type = BLOCK_PALETTE
-        .iter()
-        .find(|(bt, _)| bt == &"sandstone")
-        .unwrap()
-        .to_owned();
+    let block = block_from_palette("sandstone");
     for x in 0..16 {
         for z in 0..16 {
             let transform =
@@ -36,7 +32,7 @@ fn setup_floor(
                 &mut meshes,
                 &mut materials,
                 &mut line_materials,
-                block_type.clone(),
+                block.clone(),
                 transform,
             );
         }

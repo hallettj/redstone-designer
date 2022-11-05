@@ -9,6 +9,7 @@ use bevy::{
 use minecraft_assets::{
     api::{AssetPack, ModelResolver},
     schemas::{
+        blockstates::Variant,
         models::{BlockFace, Element, Texture},
         Model,
     },
@@ -16,7 +17,7 @@ use minecraft_assets::{
 
 use crate::{
     block_picker::SelectedBlockType,
-    constants::{BLOCKS, BLOCK_FACES},
+    constants::{block_from_palette, BLOCKS, BLOCK_FACES},
     cursor::Cursor,
     lines::LineMaterial,
     user_input::{sent_command, UiCommand},
@@ -85,7 +86,7 @@ fn place_block(
                 &mut meshes,
                 &mut materials,
                 &mut line_materials,
-                (selected.block_type, selected.initial_state.clone()),
+                selected.block.clone(),
                 transform,
             )
         }
@@ -113,7 +114,7 @@ pub fn spawn_test_block(
         &mut meshes,
         &mut materials,
         &mut line_materials,
-        ("repeater", BlockState::Repeater(default())),
+        block_from_palette("repeater"),
         Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS),
     )
 }
@@ -127,7 +128,7 @@ pub fn spawn_block(
     (block_type, initial_state): (&str, BlockState),
     transform: Transform,
 ) {
-    let model = get_block_model_metadata(block_type).unwrap();
+    let model = get_block_model_metadata(block_type, &initial_state).unwrap();
     let bounding_box = {
         let elements = model.elements.as_ref().unwrap();
         bounding_box_for_block_model(block_type, &elements)
@@ -159,13 +160,14 @@ pub fn spawn_block_preview_for_block_picker(
     asset_server: &Res<AssetServer>,
     meshes: &mut ResMut<Assets<Mesh>>,
     materials: &mut ResMut<Assets<StandardMaterial>>,
-    block_model: &str,
+    block_type: &str,
     transform: Transform,
 
     // Component to insert in the entity, and into children.
     recursive_component: Option<impl Component + Clone>,
 ) -> Result<Entity> {
-    let model = get_block_model_metadata(block_model)?;
+    let (_, initial_state) = block_from_palette(block_type);
+    let model = get_block_model_metadata(block_type, &initial_state)?;
     spawn_block_common(
         commands,
         asset_server,
@@ -212,14 +214,27 @@ fn spawn_block_common(
     Ok(block.id())
 }
 
-fn get_block_model_metadata(block_model: &str) -> Result<Model> {
+fn get_block_model_metadata(block_type: &str, state: &BlockState) -> Result<Model> {
     // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
     let assets = AssetPack::at_path("assets/minecraft/");
-    let models = assets
-        .load_block_model_recursive(block_model)
-        .with_context(|| format!("no block model found for \"{}\"", block_model))?;
-    let model = ModelResolver::resolve_model(models.iter());
-    Ok(model)
+    let block_states = assets
+        .load_blockstates(block_type)
+        .with_context(|| format!("no block states found for \"{}\"", block_type))?;
+    let variant = state.active_variant(block_states);
+    match variant {
+        Variant::Single(model_properties) => {
+            let models = assets
+                .load_block_model_recursive(&model_properties.model)
+                .with_context(|| format!("no block model found for \"{}\"", block_type))?;
+            let model = ModelResolver::resolve_model(models.iter());
+            Ok(model)
+        }
+        Variant::Multiple(_) => Err(anyhow!(
+            "multiple variant models are not supported yet; {} @ {:?}",
+            block_type,
+            state
+        )),
+    }
 }
 
 /// This is the black wireframe that is displayed around a block on hover.
