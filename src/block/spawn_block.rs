@@ -1,3 +1,5 @@
+use std::f32::consts::TAU;
+
 use crate::block::block_state::BlockState;
 use crate::block::BlockBundle;
 use anyhow::{anyhow, Context, Result};
@@ -8,7 +10,7 @@ use bevy::{
 use minecraft_assets::{
     api::{AssetPack, ModelResolver},
     schemas::{
-        blockstates::Variant,
+        blockstates::{ModelProperties, Variant},
         models::{BlockFace, Element, Texture},
         Model,
     },
@@ -19,7 +21,12 @@ use crate::{
     lines::LineMaterial,
 };
 
-use super::{bounding_box::{bounding_box_for_block_model, bounding_box_to_collider, bounding_box_to_line_list}, BlockOutline};
+use super::{
+    bounding_box::{
+        bounding_box_for_block_model, bounding_box_to_collider, bounding_box_to_line_list,
+    },
+    BlockOutline,
+};
 
 pub fn spawn_test_block(
     mut commands: Commands,
@@ -48,7 +55,7 @@ pub fn spawn_block(
     (block_type, initial_state): (&str, BlockState),
     transform: Transform,
 ) {
-    let model = get_block_model_metadata(block_type, &initial_state).unwrap();
+    let (model, model_properties) = get_block_model_metadata(block_type, &initial_state).unwrap();
     let bounding_box = {
         let elements = model.elements.as_ref().unwrap();
         bounding_box_for_block_model(block_type, &elements)
@@ -59,6 +66,7 @@ pub fn spawn_block(
         meshes,
         materials,
         model,
+        model_properties,
         transform,
         None as Option<BlockOutline>, // the choice of component type here does not matter
     )
@@ -87,13 +95,14 @@ pub fn spawn_block_preview_for_block_picker(
     recursive_component: Option<impl Component + Clone>,
 ) -> Result<Entity> {
     let (_, initial_state) = block_from_palette(block_type);
-    let model = get_block_model_metadata(block_type, &initial_state)?;
+    let (model, model_properties) = get_block_model_metadata(block_type, &initial_state)?;
     spawn_block_common(
         commands,
         asset_server,
         meshes,
         materials,
         model,
+        model_properties,
         transform,
         recursive_component,
     )
@@ -105,10 +114,12 @@ fn spawn_block_common(
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
     model: Model,
-    transform: Transform,
+    model_properties: ModelProperties,
+    mut transform: Transform,
     // Component to insert in the entity, and into children.
     recursive_component: Option<impl Component + Clone>,
 ) -> Result<Entity> {
+    transform.rotate_y(model_properties.y as f32 / 360.0 * TAU);
     let elements = model
         .elements
         .ok_or(anyhow!("block model has no elements"))?;
@@ -134,7 +145,10 @@ fn spawn_block_common(
     Ok(block.id())
 }
 
-fn get_block_model_metadata(block_type: &str, state: &BlockState) -> Result<Model> {
+fn get_block_model_metadata(
+    block_type: &str,
+    state: &BlockState,
+) -> Result<(Model, ModelProperties)> {
     // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
     let assets = AssetPack::at_path("assets/minecraft/");
     let block_states = assets
@@ -147,7 +161,7 @@ fn get_block_model_metadata(block_type: &str, state: &BlockState) -> Result<Mode
                 .load_block_model_recursive(&model_properties.model)
                 .with_context(|| format!("no block model found for \"{}\"", block_type))?;
             let model = ModelResolver::resolve_model(models.iter());
-            Ok(model)
+            Ok((model, model_properties))
         }
         Variant::Multiple(_) => Err(anyhow!(
             "multiple variant models are not supported yet; {} @ {:?}",
