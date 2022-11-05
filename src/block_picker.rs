@@ -11,7 +11,7 @@ use bevy::{
 };
 
 use crate::{
-    block::{block_state::BlockState, spawn_block_preview_for_block_picker},
+    block::{spawn_block_preview_for_block_picker, BlockState},
     constants::{block_from_palette, BLOCKS, BLOCK_PALETTE, BLOCK_PREVIEW_LAYER},
     user_input::UiCommand,
 };

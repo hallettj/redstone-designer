@@ -2,7 +2,7 @@ use anyhow::{anyhow, Context};
 use bevy::render::view::RenderLayers;
 use minecraft_assets::schemas::models::BlockFace;
 
-use crate::block::block_state::BlockState;
+use crate::block::BlockState;
 
 /// Unit of distance. The model scale in use sets 1.0 unit of distance in the render space to be
 /// one Minecraft "pixel". A Minecraft block is 16 pixels.
