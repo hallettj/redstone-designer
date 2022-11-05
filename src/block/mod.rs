@@ -52,6 +52,9 @@ fn highlight_block_on_hover(
     cursor: Res<Cursor>,
     mut query_block_outlines: Query<(&mut Visibility, &Parent), With<BlockOutline>>,
 ) {
+    if !cursor.is_changed() {
+        return;
+    }
     for (mut visibility, parent) in query_block_outlines.iter_mut() {
         let is_visible = cursor.current_block.contains(&parent.get());
         if visibility.is_visible != is_visible {
