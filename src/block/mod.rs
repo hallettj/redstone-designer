@@ -1,12 +1,17 @@
+pub mod block_state;
 mod bounding_box;
 
+use anyhow::{anyhow, Context, Result};
 use bevy::{
     prelude::*,
-    render::{mesh::Indices, render_resource::PrimitiveTopology, view::RenderLayers},
+    render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
 use minecraft_assets::{
     api::{AssetPack, ModelResolver},
-    schemas::models::{BlockFace, Element, Texture},
+    schemas::{
+        models::{BlockFace, Element, Texture},
+        Model,
+    },
 };
 
 use crate::{
@@ -17,19 +22,18 @@ use crate::{
     user_input::{sent_command, UiCommand},
 };
 
-use self::bounding_box::{
-    bounding_box_for_block_model, bounding_box_to_collider, bounding_box_to_line_list,
+use self::{
+    block_state::BlockState,
+    bounding_box::{
+        bounding_box_for_block_model, bounding_box_to_collider, bounding_box_to_line_list,
+    },
 };
-
-#[derive(Component, Clone, Default)]
-pub struct Block;
 
 #[derive(Component, Clone, Default)]
 pub struct BlockOutline;
 
 #[derive(Bundle, Clone, Default)]
 pub struct BlockBundle {
-    block: Block,
     transform: Transform,
     global_transform: GlobalTransform,
     visibility: Visibility,
@@ -81,7 +85,7 @@ fn place_block(
                 &mut meshes,
                 &mut materials,
                 &mut line_materials,
-                selected.block_type,
+                (selected.block_type, selected.initial_state.clone()),
                 transform,
             )
         }
@@ -109,43 +113,40 @@ pub fn spawn_test_block(
         &mut meshes,
         &mut materials,
         &mut line_materials,
-        "repeater_2tick",
+        ("repeater", BlockState::Repeater(default())),
         Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS),
     )
 }
 
 pub fn spawn_block(
-    commands: &mut Commands,
+    mut commands: &mut Commands,
     asset_server: &Res<AssetServer>,
     mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     mut line_materials: &mut ResMut<Assets<LineMaterial>>,
-    block_model: &str,
+    (block_type, initial_state): (&str, BlockState),
     transform: Transform,
 ) {
-    // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
-    let assets = AssetPack::at_path("assets/minecraft/");
-    let models = assets.load_block_model_recursive(block_model).unwrap();
-    let model = ModelResolver::resolve_model(models.iter());
-    let elements = model.elements.unwrap();
-    let bounding_box = bounding_box_for_block_model(block_model, &elements);
+    let model = get_block_model_metadata(block_type).unwrap();
+    let bounding_box = {
+        let elements = model.elements.as_ref().unwrap();
+        bounding_box_for_block_model(block_type, &elements)
+    };
+    let block = spawn_block_common(
+        &mut commands,
+        asset_server,
+        meshes,
+        materials,
+        model,
+        transform,
+        None as Option<BlockOutline>, // the choice of component type here does not matter
+    )
+    .unwrap();
     commands
-        .spawn_bundle(BlockBundle {
-            transform,
-            ..default()
-        })
+        .entity(block)
         .insert(bounding_box_to_collider(bounding_box))
+        .insert(initial_state)
         .with_children(|parent| {
-            for element in elements.iter() {
-                spawn_element(
-                    parent,
-                    &asset_server,
-                    &mut meshes,
-                    &mut materials,
-                    element,
-                    None as Option<RenderLayers>,
-                );
-            }
             spawn_block_outline(parent, &mut meshes, &mut line_materials, bounding_box);
         });
 }
@@ -153,22 +154,42 @@ pub fn spawn_block(
 /// Spawn a block to display in the block picker, not in the simulation world.
 /// TODO: rename this to be less similar to `spawn_block_preview`
 /// TODO: reuse this logic in `spawn_block`
-pub fn spawn_for_block_preview(
+pub fn spawn_block_preview_for_block_picker(
     commands: &mut Commands,
     asset_server: &Res<AssetServer>,
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     block_model: &str,
     transform: Transform,
 
     // Component to insert in the entity, and into children.
-    recursive_component: Option<impl Component + Clone + std::fmt::Debug>,
-) -> Entity {
-    // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
-    let assets = AssetPack::at_path("assets/minecraft/");
-    let models = assets.load_block_model_recursive(block_model).unwrap();
-    let model = ModelResolver::resolve_model(models.iter());
-    let elements = model.elements.unwrap();
+    recursive_component: Option<impl Component + Clone>,
+) -> Result<Entity> {
+    let model = get_block_model_metadata(block_model)?;
+    spawn_block_common(
+        commands,
+        asset_server,
+        meshes,
+        materials,
+        model,
+        transform,
+        recursive_component,
+    )
+}
+
+fn spawn_block_common(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    mut meshes: &mut ResMut<Assets<Mesh>>,
+    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    model: Model,
+    transform: Transform,
+    // Component to insert in the entity, and into children.
+    recursive_component: Option<impl Component + Clone>,
+) -> Result<Entity> {
+    let elements = model
+        .elements
+        .ok_or(anyhow!("block model has no elements"))?;
     let mut block = commands.spawn_bundle(BlockBundle {
         transform,
         ..default()
@@ -188,7 +209,17 @@ pub fn spawn_for_block_preview(
     if let Some(component) = recursive_component {
         block.insert(component);
     }
-    block.id()
+    Ok(block.id())
+}
+
+fn get_block_model_metadata(block_model: &str) -> Result<Model> {
+    // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
+    let assets = AssetPack::at_path("assets/minecraft/");
+    let models = assets
+        .load_block_model_recursive(block_model)
+        .with_context(|| format!("no block model found for \"{}\"", block_model))?;
+    let model = ModelResolver::resolve_model(models.iter());
+    Ok(model)
 }
 
 /// This is the black wireframe that is displayed around a block on hover.

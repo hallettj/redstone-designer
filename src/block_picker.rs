@@ -1,3 +1,4 @@
+use anyhow::Result;
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     prelude::*,
@@ -10,7 +11,7 @@ use bevy::{
 };
 
 use crate::{
-    block::spawn_for_block_preview,
+    block::{block_state::BlockState, spawn_block_preview_for_block_picker},
     constants::{BLOCKS, BLOCK_PALETTE, BLOCK_PREVIEW_LAYER},
     user_input::{sent_command, UiCommand},
 };
@@ -27,7 +28,8 @@ pub struct BlockPickerPlugin;
 impl Plugin for BlockPickerPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(SelectedBlockType {
-            block_type: BLOCK_PALETTE[0],
+            block_type: BLOCK_PALETTE[0].0,
+            initial_state: &BLOCK_PALETTE[0].1,
         })
         .add_startup_system(spawn_block_picker)
         .add_system(show_block_picker)
@@ -39,6 +41,7 @@ impl Plugin for BlockPickerPlugin {
 #[derive(Debug)]
 pub struct SelectedBlockType {
     pub block_type: &'static str,
+    pub initial_state: &'static BlockState,
 }
 
 #[derive(Component, Debug, Default)]
@@ -71,9 +74,10 @@ fn spawn_block_picker(
                 &mut meshes,
                 &mut materials,
                 &mut images,
-                block_type,
+                block_type.0,
                 index,
             )
+            .unwrap()
         })
         .collect::<Vec<_>>();
 
@@ -113,7 +117,7 @@ fn spawn_block_picker(
                             ..default()
                         })
                         .with_children(|parent| {
-                            for (index, block_type) in BLOCK_PALETTE.iter().enumerate() {
+                            for (index, (block_type, _)) in BLOCK_PALETTE.iter().enumerate() {
                                 parent
                                     .spawn_bundle(ButtonBundle {
                                         image: block_preview_image_handles[index].clone().into(),
@@ -156,7 +160,7 @@ fn spawn_block_preview(
     images: &mut ResMut<Assets<Image>>,
     block_model: &str,
     index: usize,
-) -> Handle<Image> {
+) -> Result<Handle<Image>> {
     // This code for rendering to a texture is taken from one of the Bevy examples,
     // https://github.com/bevyengine/bevy/blob/main/examples/3d/render_to_texture.rs
 
@@ -190,7 +194,7 @@ fn spawn_block_preview(
     let translate_out_of_the_way_of_other_block_previews =
         Vec3::new(5.0 * BLOCKS * index as f32, 0.0, 0.0);
 
-    let block = spawn_for_block_preview(
+    let block = spawn_block_preview_for_block_picker(
         commands,
         asset_server,
         meshes,
@@ -199,7 +203,7 @@ fn spawn_block_preview(
         Transform::from_translation(translate_out_of_the_way_of_other_block_previews),
         // Make the block visible to the camera below, and not to the main camera
         Some(BLOCK_PREVIEW_LAYER),
-    );
+    )?;
     commands.entity(block).insert(BlockPreview);
 
     // TODO: If we shift the block 0.5 * BLOCKS over when we spawn it then we won't have to do all
@@ -236,7 +240,7 @@ fn spawn_block_preview(
         // https://github.com/bevyengine/bevy/issues/6181
         .insert(UiCameraConfig { show_ui: false });
 
-    image_handle
+    Ok(image_handle)
 }
 
 fn show_block_picker(

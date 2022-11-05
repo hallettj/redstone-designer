@@ -6,6 +6,7 @@ edition = "2021"
 # NOTE: remove "dynamic" feature from bevy when compiling a release build to
 # avoid the need to bundle libbevy_dylib
 [dependencies]
+anyhow = "1.0.66"
 bevy = { version = "0.8", features = ["dynamic"] }
 bevy_rapier3d = { version = "0.17.0", features = ["parallel", "wasm-bindgen"] }
 minecraft-assets = "0.0.6"

@@ -1,4 +1,8 @@
-use crate::{block::spawn_block, constants::BLOCKS, lines::LineMaterial};
+use crate::{
+    block::spawn_block,
+    constants::{BLOCKS, BLOCK_PALETTE},
+    lines::LineMaterial,
+};
 use bevy::prelude::*;
 
 pub struct RedstonePlugin;
@@ -17,7 +21,11 @@ fn setup_floor(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
-    let block_model = "sandstone";
+    let block_type = BLOCK_PALETTE
+        .iter()
+        .find(|(bt, _)| bt == &"sandstone")
+        .unwrap()
+        .to_owned();
     for x in 0..16 {
         for z in 0..16 {
             let transform =
@@ -28,7 +36,7 @@ fn setup_floor(
                 &mut meshes,
                 &mut materials,
                 &mut line_materials,
-                block_model,
+                block_type.clone(),
                 transform,
             );
         }
