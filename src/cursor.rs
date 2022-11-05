@@ -3,7 +3,7 @@ use bevy_rapier3d::prelude::*;
 
 use crate::{
     camera::MainCamera,
-    constants::{BLOCKS, PIXELS},
+    constants::{BLOCKS, PIXELS}, util::aligned_to_axis,
 };
 
 pub struct CursorPlugin;
@@ -54,27 +54,13 @@ fn current_block_and_place_block_transform(hit: EntityHit) -> (Entity, Transform
     // Produce an offset that moves into the space of the next block in the grid in the direction
     // of the vector. This assumes that the smallest possible selection box for a model is at least
     // one pixel (which it is - Minecraft model sizes are given in integer pixel counts).
-    let offset = snap_to_axis(normal) * (15.0 * PIXELS);
+    let offset = aligned_to_axis(normal) * (15.0 * PIXELS);
 
     // Translate from the clicked point in the direction of the normal, and snap to a corner of the
     // block grid.
     let transform = Transform::from_translation(((point + offset) / BLOCKS).floor() * BLOCKS);
 
     (entity, transform)
-}
-
-/// Given a vector, returns a normal vector aligned to the closest of the x, y, or z axes. This is
-/// probably not necessary. But it might help if the user clicks right on the corner of a collider
-/// or something.
-fn snap_to_axis(v: Vec3) -> Vec3 {
-    let positive_axes = Vec3::AXES.iter().cloned();
-    let negative_axes = Vec3::AXES.iter().map(|axis| axis.clone() * -1.0);
-    positive_axes
-        .chain(negative_axes)
-        .map(|axis| (axis, axis.dot(v)))
-        .reduce(|accum, pair| if pair.1 > accum.1 { pair } else { accum })
-        .unwrap()
-        .0
 }
 
 #[derive(Clone, Debug, PartialEq)]

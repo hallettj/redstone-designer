@@ -1,13 +1,15 @@
 use bevy::{input::mouse::MouseMotion, prelude::*, render::camera::Projection};
+use minecraft_assets::schemas::models::BlockFace;
 
-use crate::constants::BLOCKS;
+use crate::constants::{BLOCKS, BLOCK_FACE_DIRECTIONS};
 
 pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup_camera)
-            .add_system(pan_orbit_camera);
+            .add_system(pan_orbit_camera)
+            .add_system(update_facing);
     }
 }
 
@@ -148,5 +150,31 @@ fn setup_camera(mut commands: Commands) {
             radius,
             ..default()
         })
-        .insert(MainCamera);
+        .insert(MainCamera)
+        .insert(CameraFacing {
+            direction: BlockFace::North,
+        });
+}
+
+#[derive(Component, Debug)]
+pub struct CameraFacing {
+    direction: BlockFace,
+}
+
+fn update_facing(
+    mut query: Query<(&Transform, &mut CameraFacing), (With<MainCamera>, Changed<Transform>)>,
+) {
+    for (transform, mut camera_facing) in query.iter_mut() {
+        let camera_look_vector = transform.forward();
+        let block_face = BLOCK_FACE_DIRECTIONS
+            .iter()
+            .map(|(face, dir)| (face, dir.dot(camera_look_vector)))
+            .reduce(|accum, pair| if pair.1 > accum.1 { pair } else { accum })
+            .unwrap()
+            .0
+            .clone();
+        if camera_facing.direction != block_face {
+            camera_facing.direction = block_face;
+        }
+    }
 }

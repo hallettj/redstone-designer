@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Context};
-use bevy::render::view::RenderLayers;
+use bevy::{prelude::*, render::view::RenderLayers};
 use minecraft_assets::schemas::models::BlockFace;
 
 use crate::block::BlockState;
@@ -20,6 +20,17 @@ pub const BLOCK_FACES: [BlockFace; 6] = [
     BlockFace::South,
     BlockFace::West,
     BlockFace::East,
+];
+
+/// Block face enum members paired with unit vectors indicating which side of a block the face
+/// appears on relative to the center of the block.
+pub const BLOCK_FACE_DIRECTIONS: [(BlockFace, Vec3); 6] = [
+    (BlockFace::Down, Vec3::NEG_Y),
+    (BlockFace::Up, Vec3::Y),
+    (BlockFace::North, Vec3::NEG_Z),
+    (BlockFace::South, Vec3::Z),
+    (BlockFace::West, Vec3::NEG_X),
+    (BlockFace::East, Vec3::X),
 ];
 
 /// Available block types paired with initial state.

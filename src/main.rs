@@ -8,6 +8,7 @@ mod cursor;
 mod lines;
 mod redstone;
 mod user_input;
+mod util;
 
 use bevy::{prelude::*, render::texture::ImageSettings};
 use bevy_rapier3d::prelude::*;
