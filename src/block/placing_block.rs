@@ -27,6 +27,7 @@ struct BlockRotation {
 
 fn place_block(
     selected: Res<SelectedBlockType>,
+    block_rotation: Res<BlockRotation>,
     user_input: EventReader<UiCommand>,
     cursor: Res<Cursor>,
     mut commands: Commands,
@@ -36,7 +37,10 @@ fn place_block(
     mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
     if sent_command(user_input, UiCommand::PlaceBlock) {
-        // let init_state
+        let (block_type, mut block_state) = selected.block.clone();
+        if let Some(direction) = block_rotation.direction {
+            block_state.set_facing(direction);
+        }
         if let Some(transform) = cursor.place_block_transform {
             spawn_block(
                 &mut commands,
@@ -44,7 +48,7 @@ fn place_block(
                 &mut meshes,
                 &mut materials,
                 &mut line_materials,
-                selected.block.clone(),
+                (block_type, block_state),
                 transform,
             )
         }

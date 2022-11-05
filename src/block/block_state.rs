@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use minecraft_assets::schemas::{
     blockstates::{multipart::StateValue, Variant},
+    models::BlockFace,
     BlockStates,
 };
 
@@ -51,6 +52,27 @@ impl BlockState {
             panic!("no variant found for block state: {:?}", self);
         } else {
             variants.remove(0)
+        }
+    }
+
+    /// Set a state property if the named property is already present. (Each block type has a fixed
+    /// set of allowed state properties that are included with its initial state.)
+    pub fn update(&mut self, prop: String, value: StateValue) {
+        self.0.entry(prop).and_modify(|v| *v = value);
+    }
+
+    /// Set facing for a block if it already has a facing state.
+    pub fn set_facing(&mut self, face: BlockFace) {
+        let facing = match face {
+            BlockFace::North => Some("north"),
+            BlockFace::South => Some("south"),
+            BlockFace::East => Some("east"),
+            BlockFace::West => Some("west"),
+            BlockFace::Up => None, // repeaters only accept horizontal facing values
+            BlockFace::Down => None,
+        };
+        if let Some(facing) = facing {
+            self.update("facing".to_owned(), StateValue::String(facing.to_owned()));
         }
     }
 }
