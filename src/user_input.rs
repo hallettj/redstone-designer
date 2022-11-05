@@ -1,86 +1,77 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, utils::HashSet};
 
-use crate::block_picker::BlockPicker;
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub enum UiCommand {
     PlaceBlock,
     DestroyBlock,
     OpenBlockPicker,
     CloseBlockPicker,
+    ToggleBlockPicker,
 }
 
 pub fn sent_command(mut ev_ui_command: EventReader<UiCommand>, command: UiCommand) -> bool {
     ev_ui_command.iter().any(|c| c == &command)
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
 pub enum Action {
     ActivateTool(Tool),
-    Click,
     ExitMode,
     ToggleBlockPicker,
+    UseActiveTool,
 }
 
 #[derive(Clone, Debug)]
-pub struct KeyBindings(Vec<(Action, Binding)>);
+pub struct KeyBindings(Vec<Binding>);
 
 impl Default for KeyBindings {
     fn default() -> Self {
         KeyBindings(vec![
-            (
-                Action::Click,
-                Binding {
-                    key: Key::Mouse(MouseButton::Left),
-                    binding_mode: BindingMode::Tap,
-                    modes: vec![Mode::Normal],
-                },
-            ),
-            (
-                Action::ActivateTool(Tool::Destroy),
-                Binding {
-                    key: Key::Keyboard(KeyCode::X),
-                    binding_mode: BindingMode::Hold,
-                    modes: vec![Mode::Normal],
-                },
-            ),
-            (
-                Action::ExitMode,
-                Binding {
-                    key: Key::Keyboard(KeyCode::Escape),
-                    binding_mode: BindingMode::Tap,
-                    modes: vec![Mode::UI],
-                },
-            ),
-            (
-                Action::ToggleBlockPicker,
-                Binding {
-                    key: Key::Keyboard(KeyCode::P),
-                    binding_mode: BindingMode::Tap,
-                    modes: vec![Mode::Normal, Mode::UI],
-                },
-            ),
+            Binding {
+                action: Action::UseActiveTool,
+                key: Key::Mouse(MouseButton::Left),
+                binding_style: BindingStyle::Hold,
+                modes: vec![Mode::Normal],
+            },
+            Binding {
+                action: Action::ActivateTool(Tool::Destroy),
+                key: Key::Keyboard(KeyCode::X),
+                binding_style: BindingStyle::Hold,
+                modes: vec![Mode::Normal],
+            },
+            Binding {
+                action: Action::ExitMode,
+                key: Key::Keyboard(KeyCode::Escape),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::Normal],
+            },
+            Binding {
+                action: Action::ToggleBlockPicker,
+                key: Key::Keyboard(KeyCode::P),
+                binding_style: BindingStyle::Tap,
+                modes: vec![Mode::Normal],
+            },
         ])
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub enum Tool {
+    #[default]
     Place,
     Destroy,
 }
 
-const DEFAULT_TOOL: Tool = Tool::Place;
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Binding {
+    action: Action,
     key: Key,
-    binding_mode: BindingMode,
+    binding_style: BindingStyle,
     modes: Vec<Mode>,
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum BindingMode {
+pub enum BindingStyle {
     /// In this mode tapping a key or mouse button activates the binding.
     Tap,
 
@@ -90,13 +81,15 @@ pub enum BindingMode {
     Hold,
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub enum Mode {
     /// Normal world interaction; e.g. clicking to place blocks against other blocks
+    #[default]
     Normal,
 
-    /// A UI window is open, such as the block picker
-    UI,
+    /// Active mode while holding down left-click (or after tapping if you have ActivateTool set to
+    /// `Tap`).
+    PlacingBlock,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -105,18 +98,42 @@ pub enum Key {
     Mouse(MouseButton),
 }
 
-#[derive(Debug)]
-pub struct UserInput {
+#[derive(Debug, Default)]
+struct SelectedTool {
     active_tool: Tool,
     last_active_tool: Tool,
 }
 
-impl Default for UserInput {
-    fn default() -> Self {
-        UserInput {
-            active_tool: DEFAULT_TOOL,
-            last_active_tool: DEFAULT_TOOL,
+impl SelectedTool {
+    fn push_tool(&mut self, tool: Tool) {
+        if tool != self.active_tool {
+            self.last_active_tool = self.active_tool;
+            self.active_tool = tool;
         }
+    }
+
+    fn pop_tool(&mut self) {
+        self.active_tool = self.last_active_tool;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct InputState {
+    mode: Mode,
+    last_mode: Mode,
+    bindings_pressed: HashSet<Action>,
+}
+
+impl InputState {
+    fn push_mode(&mut self, mode: Mode) {
+        if self.mode != mode {
+            self.last_mode = self.mode;
+            self.mode = mode;
+        }
+    }
+
+    fn pop_mode(&mut self) {
+        self.mode = self.last_mode;
     }
 }
 
@@ -125,98 +142,322 @@ pub struct UserInputPlugin;
 impl Plugin for UserInputPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(KeyBindings::default())
-            .insert_resource(UserInput::default())
+            .insert_resource(InputState::default())
+            .insert_resource(SelectedTool::default())
             .add_event::<UiCommand>()
-            .add_system_to_stage(CoreStage::PreUpdate, register_commands);
+            .add_system_to_stage(CoreStage::PreUpdate, register_binding_presses);
     }
 }
 
-fn register_commands(
+fn register_binding_presses(
     mut ev_ui_command: EventWriter<UiCommand>,
-    mut user_input: ResMut<UserInput>,
+    mut state: ResMut<InputState>,
+    mut selected_tool: ResMut<SelectedTool>,
     bindings: Res<KeyBindings>,
     mouse: Res<Input<MouseButton>>,
     keyboard: Res<Input<KeyCode>>,
-    query_block_picker: Query<&BlockPicker>,
 ) {
-    let active_tool = user_input.active_tool;
-
-    for (action, binding) in bindings.0.iter() {
-        let picker = query_block_picker.single();
-        let mode = if !picker.is_open {
-            Mode::Normal
-        } else {
-            Mode::UI
-        };
-        if is_binding_active(binding, mode, &mouse, &keyboard) {
-            match action {
-                Action::Click => {
-                    let command = match active_tool {
-                        Tool::Place => UiCommand::PlaceBlock,
-                        Tool::Destroy => UiCommand::DestroyBlock,
-                    };
-                    ev_ui_command.send(command);
-                }
-                Action::ActivateTool(tool) => {
-                    user_input.active_tool = tool.clone();
-                    if tool != &active_tool {
-                        user_input.last_active_tool = active_tool;
-                    }
-                }
-                Action::ExitMode => {
-                    if picker.is_open {
-                        ev_ui_command.send(UiCommand::CloseBlockPicker);
-                    }
-                }
-                Action::ToggleBlockPicker => {
-                    let picker = query_block_picker.single();
-                    if !picker.is_open {
-                        ev_ui_command.send(UiCommand::OpenBlockPicker);
-                    } else {
-                        ev_ui_command.send(UiCommand::CloseBlockPicker);
-                    }
-                }
+    let mode = state.mode;
+    for binding in bindings.0.iter() {
+        if is_binding_invoked(binding, mode, &state, &mouse, &keyboard) {
+            match binding.binding_style {
+                BindingStyle::Tap => dispatch_action(
+                    &mut ev_ui_command,
+                    &mut state,
+                    &mut selected_tool,
+                    binding.action,
+                ),
+                BindingStyle::Hold => dispatch_action_start(
+                    &mut ev_ui_command,
+                    &mut state,
+                    &mut selected_tool,
+                    binding.action,
+                ),
             }
         }
-        if hold_type_binding_was_just_active(binding, &mouse, &keyboard) {
-            match action {
-                Action::ActivateTool(_) => {
-                    user_input.active_tool = user_input.last_active_tool;
-                }
-                Action::ToggleBlockPicker => {
-                    ev_ui_command.send(UiCommand::CloseBlockPicker);
-                }
-                _ => (),
-            }
+        if is_binding_released(binding, &state, &mouse, &keyboard) {
+            dispatch_action_finish(
+                &mut ev_ui_command,
+                &mut state,
+                &mut selected_tool,
+                binding.action,
+            )
+        }
+    }
+    update_bindings_pressed(&bindings, &mut state, mode, &mouse, &keyboard);
+}
+
+// Called when a tap-style binding is pressed and released
+fn dispatch_action(
+    ev_ui_command: &mut EventWriter<UiCommand>,
+    _state: &mut ResMut<InputState>,
+    selected_tool: &mut ResMut<SelectedTool>,
+    action: Action,
+) {
+    match action {
+        Action::UseActiveTool => {
+            let command = match selected_tool.active_tool {
+                Tool::Place => UiCommand::PlaceBlock,
+                Tool::Destroy => UiCommand::DestroyBlock,
+            };
+            ev_ui_command.send(command);
+        }
+        Action::ActivateTool(tool) => {
+            selected_tool.push_tool(tool);
+        }
+        Action::ExitMode => {
+            ev_ui_command.send(UiCommand::CloseBlockPicker);
+        }
+        Action::ToggleBlockPicker => {
+            ev_ui_command.send(UiCommand::ToggleBlockPicker);
         }
     }
 }
 
-fn is_binding_active(
+// Called when a hold-style binding is pressed
+fn dispatch_action_start(
+    ev_ui_command: &mut EventWriter<UiCommand>,
+    state: &mut ResMut<InputState>,
+    selected_tool: &mut ResMut<SelectedTool>,
+    action: Action,
+) {
+    match action {
+        Action::UseActiveTool => {
+            match selected_tool.active_tool {
+                Tool::Place => state.push_mode(Mode::PlacingBlock),
+                Tool::Destroy => (),
+            };
+        }
+        Action::ActivateTool(tool) => {
+            selected_tool.push_tool(tool);
+        }
+        Action::ExitMode => (),
+        Action::ToggleBlockPicker => {
+            ev_ui_command.send(UiCommand::OpenBlockPicker);
+        }
+    }
+}
+
+/// Called when a hold-style binding is released
+fn dispatch_action_finish(
+    ev_ui_command: &mut EventWriter<UiCommand>,
+    state: &mut ResMut<InputState>,
+    selected_tool: &mut ResMut<SelectedTool>,
+    action: Action,
+) {
+    match action {
+        Action::UseActiveTool => {
+            if state.mode == Mode::PlacingBlock {
+                state.pop_mode();
+            }
+            dispatch_action(ev_ui_command, state, selected_tool, action);
+        }
+        Action::ActivateTool(_) => selected_tool.pop_tool(),
+        Action::ExitMode => dispatch_action(ev_ui_command, state, selected_tool, action),
+        Action::ToggleBlockPicker => {
+            ev_ui_command.send(UiCommand::CloseBlockPicker);
+        }
+    }
+}
+
+fn update_bindings_pressed(
+    bindings: &Res<KeyBindings>,
+    state: &mut ResMut<InputState>,
+    mode: Mode,
+    mouse: &Res<Input<MouseButton>>,
+    keyboard: &Res<Input<KeyCode>>,
+) {
+    let mut bindings_pressed = state.bindings_pressed.clone();
+    for binding in bindings.0.iter() {
+        if is_binding_pressed(binding, mode, mouse, keyboard) {
+            bindings_pressed.insert(binding.action);
+        }
+        if just_released(binding.key, mouse, keyboard) {
+            bindings_pressed.remove(&binding.action);
+        }
+    }
+    if bindings_pressed != state.bindings_pressed {
+        state.bindings_pressed = bindings_pressed;
+    }
+}
+
+/// The key for a binding has been pressed - the binding has not necessarily been invoked yet.
+fn is_binding_pressed(
     binding: &Binding,
     mode: Mode,
     mouse: &Res<Input<MouseButton>>,
     keyboard: &Res<Input<KeyCode>>,
 ) -> bool {
-    if !binding.modes.iter().any(|m| m == &mode) {
-        return false;
-    }
-    match (binding.key, binding.binding_mode) {
-        (Key::Keyboard(key_code), BindingMode::Tap) => keyboard.just_released(key_code),
-        (Key::Keyboard(key_code), BindingMode::Hold) => keyboard.just_pressed(key_code),
-        (Key::Mouse(button), BindingMode::Tap) => mouse.just_released(button),
-        (Key::Mouse(button), BindingMode::Hold) => mouse.just_pressed(button),
-    }
+    matches_mode(mode, binding) && just_pressed(binding.key, mouse, keyboard)
 }
 
-fn hold_type_binding_was_just_active(
+/// Returns true if the key for the given binding was pressed and released (for a Tap style
+/// binding), or is being held (for a Hold style binding).
+fn is_binding_invoked(
     binding: &Binding,
+    mode: Mode,
+    previously_pressed_bindings: &InputState,
     mouse: &Res<Input<MouseButton>>,
     keyboard: &Res<Input<KeyCode>>,
 ) -> bool {
-    match (binding.key, binding.binding_mode) {
-        (Key::Keyboard(key_code), BindingMode::Hold) => keyboard.just_released(key_code),
-        (Key::Mouse(button), BindingMode::Hold) => mouse.just_released(button),
-        (_, BindingMode::Tap) => false,
+    // For tap-style the mode should match on both press and release. For hold-style it only needs
+    // to match on press.
+    if !matches_mode(mode, binding) {
+        return false;
+    }
+    match binding.binding_style {
+        BindingStyle::Tap => {
+            just_released(binding.key, mouse, keyboard)
+                && previously_pressed_bindings
+                    .bindings_pressed
+                    .iter()
+                    .any(|action| action == &binding.action)
+        }
+        BindingStyle::Hold => just_pressed(binding.key, mouse, keyboard),
+    }
+}
+
+/// Hold-style bindings activate a mode while the given key is held. This function detects when the
+/// binding is released meaning that mode should be exited.
+fn is_binding_released(
+    binding: &Binding,
+    previously_pressed_bindings: &InputState,
+    mouse: &Res<Input<MouseButton>>,
+    keyboard: &Res<Input<KeyCode>>,
+) -> bool {
+    // No mode check!
+    match binding.binding_style {
+        BindingStyle::Tap => false,
+        BindingStyle::Hold => {
+            just_released(binding.key, mouse, keyboard)
+                && previously_pressed_bindings
+                    .bindings_pressed
+                    .iter()
+                    .any(|action| action == &binding.action)
+        }
+    }
+}
+
+fn just_pressed(key: Key, mouse: &Res<Input<MouseButton>>, keyboard: &Res<Input<KeyCode>>) -> bool {
+    match key {
+        Key::Keyboard(key_code) => keyboard.just_pressed(key_code),
+        Key::Mouse(button) => mouse.just_pressed(button),
+    }
+}
+
+fn just_released(
+    key: Key,
+    mouse: &Res<Input<MouseButton>>,
+    keyboard: &Res<Input<KeyCode>>,
+) -> bool {
+    match key {
+        Key::Keyboard(key_code) => keyboard.just_released(key_code),
+        Key::Mouse(button) => mouse.just_released(button),
+    }
+}
+
+fn matches_mode(mode: Mode, binding: &Binding) -> bool {
+    binding.modes.iter().any(|m| m == &mode)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        hash::Hash,
+        marker::{Copy, Send, Sync},
+    };
+
+    use bevy::prelude::*;
+
+    use super::*;
+
+    #[test]
+    fn opens_the_block_picker() {
+        let mut app = initialize_test_app();
+        send_key_press(&mut app, KeyCode::P);
+        assert_eq!(
+            ui_command_events(&app),
+            vec![UiCommand::OpenBlockPicker],
+            "open block picker command was sent"
+        )
+    }
+
+    #[test]
+    fn places_a_block() {
+        let mut app = initialize_test_app();
+        send_key_down(&mut app, MouseButton::Left);
+        assert_eq!(
+            app.world.resource::<InputState>().mode,
+            Mode::PlacingBlock,
+            "mode has changed to PlacingBlock"
+        );
+
+        send_key_up(&mut app, MouseButton::Left);
+        assert_eq!(
+            app.world.resource::<InputState>().mode,
+            Mode::Normal,
+            "mode has changed to Normal"
+        );
+        assert_eq!(
+            ui_command_events(&app),
+            vec![UiCommand::PlaceBlock],
+            "place block command was sent"
+        )
+    }
+
+    #[test]
+    fn destroys_a_block() {
+        let mut app = initialize_test_app();
+        send_key_down(&mut app, KeyCode::X);
+        send_key_press(&mut app, MouseButton::Left);
+        assert_eq!(
+            ui_command_events(&app),
+            vec![UiCommand::DestroyBlock],
+            "destroy block command was sent"
+        )
+    }
+
+    fn initialize_test_app() -> App {
+        let mut app = App::new();
+        app.insert_resource(KeyBindings::default())
+            .insert_resource(InputState::default())
+            .insert_resource(SelectedTool::default())
+            .insert_resource(Input::<MouseButton>::default())
+            .insert_resource(Input::<KeyCode>::default())
+            .add_event::<UiCommand>()
+            .add_system_to_stage(CoreStage::PreUpdate, register_binding_presses);
+        app
+    }
+
+    fn send_key_press<T>(app: &mut App, key: T)
+    where
+        T: Copy + Eq + Hash + Send + Sync + 'static,
+    {
+        send_key_down(app, key);
+        send_key_up(app, key);
+    }
+
+    fn send_key_down<T>(app: &mut App, key: T)
+    where
+        T: Copy + Eq + Hash + Send + Sync + 'static,
+    {
+        app.world.resource_mut::<Input<T>>().press(key);
+        app.update(); // run systems
+        app.world.resource_mut::<Input<T>>().clear(); // clear `just_pressed` status
+    }
+
+    fn send_key_up<T>(app: &mut App, key: T)
+    where
+        T: Copy + Eq + Hash + Send + Sync + 'static,
+    {
+        app.world.resource_mut::<Input<T>>().release(key);
+        app.update(); // run systems
+        app.world.resource_mut::<Input<T>>().clear(); // clear `just_released` status
+    }
+
+    fn ui_command_events(app: &App) -> Vec<UiCommand> {
+        let events = app.world.resource::<Events<UiCommand>>();
+        let mut reader = events.get_reader();
+        reader.iter(events).cloned().collect()
     }
 }

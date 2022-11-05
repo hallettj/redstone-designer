@@ -13,7 +13,7 @@ use bevy::{
 use crate::{
     block::{block_state::BlockState, spawn_block_preview_for_block_picker},
     constants::{block_from_palette, BLOCKS, BLOCK_PALETTE, BLOCK_PREVIEW_LAYER},
-    user_input::{sent_command, UiCommand},
+    user_input::UiCommand,
 };
 
 const BLOCK_PREVIEW_SIZE: u32 = 100; // px
@@ -31,9 +31,8 @@ impl Plugin for BlockPickerPlugin {
             block: block_from_palette(BLOCK_PALETTE[0].0),
         })
         .add_startup_system(spawn_block_picker)
-        .add_system(show_block_picker)
-        .add_system(hide_block_picker)
-        .add_system(button_system.before(hide_block_picker));
+        .add_system(toggle_block_picker)
+        .add_system(button_system);
     }
 }
 
@@ -243,41 +242,42 @@ fn spawn_block_preview(
     Ok(image_handle)
 }
 
-fn show_block_picker(
-    user_input: EventReader<UiCommand>,
+fn toggle_block_picker(
+    mut user_input: EventReader<UiCommand>,
     mut query: Query<(&mut BlockPicker, &mut Style)>,
 ) {
-    if sent_command(user_input, UiCommand::OpenBlockPicker) {
-        let (mut picker, mut picker_style) = query.single_mut();
-        picker.is_open = true;
-        picker_style.display = Display::Flex;
+    for command in user_input.iter() {
+        match command {
+            UiCommand::OpenBlockPicker => toggle_block_picker_helper(true, &mut query),
+            UiCommand::CloseBlockPicker => toggle_block_picker_helper(false, &mut query),
+            UiCommand::ToggleBlockPicker => {
+                let (picker, _) = query.single();
+                toggle_block_picker_helper(!picker.is_open, &mut query);
+            }
+            _ => {}
+        }
     }
 }
 
-// TODO: Do we want to hide/disable block previews? Do they render when the texture output is not
-// visible?
-fn hide_block_picker(
-    user_input: EventReader<UiCommand>,
-    mut query: Query<(&mut BlockPicker, &mut Style)>,
-) {
-    if sent_command(user_input, UiCommand::CloseBlockPicker) {
-        let (mut picker, mut picker_style) = query.single_mut();
-        picker.is_open = false;
-        picker_style.display = Display::None;
-    }
+// TODO: Do we want to hide/disable block previews when the picker is closed? Do they render when
+// the texture output is not visible?
+fn toggle_block_picker_helper(open: bool, query: &mut Query<(&mut BlockPicker, &mut Style)>) {
+    let (mut picker, mut picker_style) = query.single_mut();
+    picker.is_open = open;
+    picker_style.display = if open { Display::Flex } else { Display::None };
 }
 
 fn button_system(
     mut button_query: Query<(&Interaction, &BlockPickerButton, &mut UiColor), Changed<Interaction>>,
+    mut picker_query: Query<(&mut BlockPicker, &mut Style)>,
     mut selected: ResMut<SelectedBlockType>,
-    mut ev_ui_command: EventWriter<UiCommand>,
 ) {
     for (interaction, button, mut color) in &mut button_query {
         match *interaction {
             Interaction::Clicked => {
                 *color = PRESSED_BUTTON_COLOR.into();
                 selected.block = button.block.clone();
-                ev_ui_command.send(UiCommand::CloseBlockPicker);
+                toggle_block_picker_helper(false, &mut picker_query)
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON_COLOR.into();
