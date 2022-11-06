@@ -7,11 +7,11 @@ use bevy::prelude::*;
 
 use crate::{cursor::Cursor, lines::LineMaterial};
 
+use self::placing_block::PlacingBlockPlugin;
 pub use self::{
     block_state::BlockState,
     spawn_block::{spawn_block, spawn_block_preview_for_block_picker},
 };
-use self::{placing_block::PlacingBlockPlugin, spawn_block::spawn_test_block};
 
 #[derive(Component, Clone, Default)]
 pub struct BlockOutline;
@@ -30,7 +30,6 @@ impl Plugin for BlockPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(MaterialPlugin::<LineMaterial>::default())
             .add_plugin(PlacingBlockPlugin)
-            .add_startup_system(spawn_test_block)
             .add_system(highlight_block_on_hover);
     }
 }

@@ -15,7 +15,7 @@ use minecraft_assets::{
 };
 
 use crate::{
-    constants::{block_from_palette, BLOCKS, BLOCK_FACES},
+    constants::{block_from_palette, BLOCK_FACES},
     lines::LineMaterial,
 };
 
@@ -25,24 +25,6 @@ use super::{
     },
     BlockOutline,
 };
-
-pub fn spawn_test_block(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut line_materials: ResMut<Assets<LineMaterial>>,
-) {
-    spawn_block(
-        &mut commands,
-        &asset_server,
-        &mut meshes,
-        &mut materials,
-        &mut line_materials,
-        block_from_palette("repeater"),
-        Transform::from_xyz(8.0 * BLOCKS, 0.0, 8.0 * BLOCKS),
-    )
-}
 
 pub fn spawn_block(
     mut commands: &mut Commands,
