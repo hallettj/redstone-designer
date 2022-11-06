@@ -1,3 +1,5 @@
+use std::f32::consts::TAU;
+
 use bevy::prelude::*;
 use minecraft_assets::schemas::models::BlockFace;
 
@@ -56,4 +58,11 @@ pub fn vec_to_block_face(vec: Vec3) -> BlockFace {
         .unwrap()
         .0
         .clone()
+}
+
+/// The Minecraft block state format specifies rotation using an integer number of degrees. This
+/// function reverses the angle, and converts to radians for compatibility with Bevy's rotation
+/// helpers.
+pub fn degrees_to_radians(degrees: i32) -> f32 {
+    -degrees as f32 / 360.0 * TAU
 }

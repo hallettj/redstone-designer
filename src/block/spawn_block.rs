@@ -1,7 +1,5 @@
-use std::f32::consts::TAU;
-
-use crate::block::block_state::BlockState;
 use crate::block::BlockBundle;
+use crate::{block::block_state::BlockState, util::degrees_to_radians};
 use anyhow::{anyhow, Context, Result};
 use bevy::{
     prelude::*,
@@ -119,8 +117,8 @@ fn spawn_block_common(
     // Component to insert in the entity, and into children.
     recursive_component: Option<impl Component + Clone>,
 ) -> Result<Entity> {
-    transform.rotate_y(model_properties.y as f32 / 360.0 * TAU);
-    transform.rotate_x(model_properties.x as f32 / 360.0 * TAU);
+    transform.rotate_y(degrees_to_radians(model_properties.y));
+    transform.rotate_x(degrees_to_radians(model_properties.x));
     let elements = model
         .elements
         .ok_or(anyhow!("block model has no elements"))?;
