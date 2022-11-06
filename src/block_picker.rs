@@ -190,8 +190,8 @@ fn spawn_block_preview(
 
     let image_handle = images.add(image);
 
-    let translate_out_of_the_way_of_other_block_previews =
-        Vec3::new(5.0 * BLOCKS * index as f32, 0.0, 0.0);
+    // Translate each block by a different amount so they don't cover each other.
+    let center_of_block = Vec3::new(5.0 * BLOCKS * index as f32, 0.0, 0.0);
 
     let block = spawn_block_preview_for_block_picker(
         commands,
@@ -199,16 +199,11 @@ fn spawn_block_preview(
         meshes,
         materials,
         block_model,
-        Transform::from_translation(translate_out_of_the_way_of_other_block_previews),
+        Transform::from_translation(center_of_block),
         // Make the block visible to the camera below, and not to the main camera
         Some(BLOCK_PREVIEW_LAYER),
     )?;
     commands.entity(block).insert(BlockPreview);
-
-    // TODO: If we shift the block 0.5 * BLOCKS over when we spawn it then we won't have to do all
-    // of these corrections with cameras.
-    let center_of_block = Vec3::new(0.5 * BLOCKS, 0.5 * BLOCKS, 0.5 * BLOCKS)
-        + translate_out_of_the_way_of_other_block_previews;
 
     commands
         .spawn_bundle(Camera3dBundle {

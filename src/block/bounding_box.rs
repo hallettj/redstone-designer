@@ -2,7 +2,10 @@ use bevy::prelude::*;
 use bevy_rapier3d::prelude::*;
 use minecraft_assets::schemas::models::Element;
 
-use crate::{constants::BLOCKS, lines::LineList};
+use crate::{
+    constants::{BLOCKS, PIXELS},
+    lines::LineList,
+};
 
 /// Gets the 3D box used for cursor interaction with a block. This volume is used to calculate
 /// whether the cursor is over the block, and is also used to draw a wireframe around the block to
@@ -114,7 +117,7 @@ pub fn bounding_box_to_collider(bounding_box: (Vec3, Vec3)) -> Collider {
 
 /// Compute a bounding box that encompasses all of the given elements.
 fn bounding_box_for_elements(elements: &[Element]) -> (Vec3, Vec3) {
-    elements.iter().fold(
+    let (min, max) = elements.iter().fold(
         (Vec3::ONE * BLOCKS, Vec3::ZERO),
         |(
             Vec3 {
@@ -142,7 +145,10 @@ fn bounding_box_for_elements(elements: &[Element]) -> (Vec3, Vec3) {
                 ),
             )
         },
-    )
+    );
+    // Minecraft uses the corner of the block as the coordinate origin. But we want to use the
+    // center of the block as the origin. To get there we translate by half a block.
+    (min - (8.0 * PIXELS), max - (8.0 * PIXELS))
 }
 
 #[cfg(test)]
@@ -165,7 +171,7 @@ mod tests {
     fn bounding_box_for_repeater() {
         let model = get_block_model("repeater_2tick");
         let actual = bounding_box_for_block_model("repeater_2tick", &(model.elements.unwrap()));
-        let expected = (Vec3::new(0.0, 0.0, 0.0), Vec3::new(16.0, 2.0, 16.0));
+        let expected = (Vec3::new(-8.0, -8.0, -8.0), Vec3::new(8.0, -6.0, 8.0));
         assert_eq!(
             actual, expected,
             "bounding box for repeater matches bounds of its first element"

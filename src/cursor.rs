@@ -3,8 +3,12 @@ use bevy_rapier3d::prelude::*;
 
 use crate::{
     camera::MainCamera,
-    constants::{BLOCKS, PIXELS}, util::aligned_to_axis,
+    constants::{BLOCKS, PIXELS},
+    util::aligned_to_axis,
 };
+
+/// Maximum distance for interacting with a block with the cursor.
+const MAX_TOI: f32 = 32.0 * BLOCKS;
 
 pub struct CursorPlugin;
 
@@ -56,9 +60,9 @@ fn current_block_and_place_block_transform(hit: EntityHit) -> (Entity, Transform
     // one pixel (which it is - Minecraft model sizes are given in integer pixel counts).
     let offset = aligned_to_axis(normal) * (15.0 * PIXELS);
 
-    // Translate from the clicked point in the direction of the normal, and snap to a corner of the
-    // block grid.
-    let transform = Transform::from_translation(((point + offset) / BLOCKS).floor() * BLOCKS);
+    // Translate from the clicked point in the direction of the normal, and snap to an intersection
+    // in the block grid.
+    let transform = Transform::from_translation(((point + offset) / BLOCKS).round() * BLOCKS);
 
     (entity, transform)
 }
@@ -87,13 +91,12 @@ fn get_block_under_cursor(
         camera,
         camera_transform,
     );
-    let max_toi = 32.0 * BLOCKS;
     let solid = true;
     let groups = InteractionGroups::all();
     let filter = QueryFilter::new().groups(groups);
 
     let (entity, intersection) =
-        rapier_context.cast_ray_and_get_normal(ray_pos, ray_dir, max_toi, solid, filter)?;
+        rapier_context.cast_ray_and_get_normal(ray_pos, ray_dir, MAX_TOI, solid, filter)?;
     Some(EntityHit {
         entity,
         intersection,
@@ -151,7 +154,7 @@ mod tests {
             (
                 "east, full block",
                 test_hit_intersection(
-                    Vec3::new(1.0 * BLOCKS, 0.5 * BLOCKS, 0.2 * BLOCKS),
+                    Vec3::new(0.5 * BLOCKS, 0.1 * BLOCKS, 0.2 * BLOCKS),
                     Vec3::new(1.0, 1e-16, 0.0),
                 ),
                 Transform::from_xyz(1.0 * BLOCKS, 0.0, 0.0),
@@ -159,7 +162,7 @@ mod tests {
             (
                 "west, full block",
                 test_hit_intersection(
-                    Vec3::new(3.0 * BLOCKS, 0.5 * BLOCKS, 1.2 * BLOCKS),
+                    Vec3::new(2.5 * BLOCKS, 0.1 * BLOCKS, 1.2 * BLOCKS),
                     Vec3::new(-1.0, 1e-16, 0.0),
                 ),
                 Transform::from_xyz(2.0 * BLOCKS, 0.0, 1.0 * BLOCKS),
@@ -167,7 +170,7 @@ mod tests {
             (
                 "top, full block",
                 test_hit_intersection(
-                    Vec3::new(3.5 * BLOCKS, 1.0 * BLOCKS, 2.5 * BLOCKS),
+                    Vec3::new(3.25 * BLOCKS, 0.5 * BLOCKS, 2.25 * BLOCKS),
                     Vec3::new(0.0, 1.0, 0.0),
                 ),
                 Transform::from_xyz(3.0 * BLOCKS, 1.0 * BLOCKS, 2.0 * BLOCKS),
@@ -175,7 +178,7 @@ mod tests {
             (
                 "east, non-full block",
                 test_hit_intersection(
-                    Vec3::new(3.6 * BLOCKS, 0.5 * BLOCKS, 0.2 * BLOCKS),
+                    Vec3::new(3.3 * BLOCKS, 0.25 * BLOCKS, 0.2 * BLOCKS),
                     Vec3::new(1.0, 1e-16, 0.0),
                 ),
                 Transform::from_xyz(4.0 * BLOCKS, 0.0, 0.0),
@@ -183,7 +186,7 @@ mod tests {
             (
                 "west, non-full block",
                 test_hit_intersection(
-                    Vec3::new(3.4 * BLOCKS, 0.5 * BLOCKS, 1.2 * BLOCKS),
+                    Vec3::new(2.7 * BLOCKS, 0.25 * BLOCKS, 1.2 * BLOCKS),
                     Vec3::new(-1.0, 1e-16, 0.0),
                 ),
                 Transform::from_xyz(2.0 * BLOCKS, 0.0, 1.0 * BLOCKS),

@@ -424,7 +424,7 @@ mod tests {
         send_key_press(&mut app, KeyCode::P);
         assert_eq!(
             ui_command_events(&app),
-            vec![UiCommand::OpenBlockPicker],
+            vec![UiCommand::ToggleBlockPicker],
             "open block picker command was sent"
         )
     }

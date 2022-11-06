@@ -120,6 +120,7 @@ fn spawn_block_common(
     recursive_component: Option<impl Component + Clone>,
 ) -> Result<Entity> {
     transform.rotate_y(model_properties.y as f32 / 360.0 * TAU);
+    transform.rotate_x(model_properties.x as f32 / 360.0 * TAU);
     let elements = model
         .elements
         .ok_or(anyhow!("block model has no elements"))?;
@@ -249,8 +250,10 @@ fn texture_path(texture: &Texture) -> Option<String> {
 }
 
 fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
-    let [min_x, min_y, min_z] = element.from;
-    let [max_x, max_y, max_z] = element.to;
+    // Minecraft uses the corner of the block as its coordinate origin. But we want to use the
+    // center of the block. To compensate, translate each vertex position by half a block.
+    let [min_x, min_y, min_z] = element.from.map(|c| c - 8.0);
+    let [max_x, max_y, max_z] = element.to.map(|c| c - 8.0);
 
     let element_face = element.faces.get(&face)?;
 
