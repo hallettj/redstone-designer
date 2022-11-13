@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
+use anyhow::{anyhow, Context, Result};
 use bevy::prelude::*;
-use minecraft_assets::schemas::{
-    blockstates::{multipart::StateValue, Variant},
-    models::BlockFace,
-    BlockStates,
+use minecraft_assets::{
+    api::AssetPack,
+    schemas::{
+        blockstates::{multipart::StateValue, Variant},
+        models::BlockFace,
+        BlockStates,
+    },
 };
 
 /// The current state of a specific block. Matches against block states defined in
@@ -14,6 +18,30 @@ use minecraft_assets::schemas::{
 pub struct BlockState(HashMap<String, StateValue>);
 
 impl BlockState {
+    /// To calculate the initial state for a block type we load an arbitrary state from the list of
+    /// block state variants for that type, and then set the values for each state property to
+    /// predefined defaults. This works because block state files list every allowed state property
+    /// for each variant.
+    pub fn initial_state_for(asset_pack: AssetPack, block_type: &str) -> Result<Self> {
+        let mut state = match get_block_states(asset_pack, block_type)? {
+            BlockStates::Variants { variants } => {
+                let state_string = variants.keys().cloned().next().ok_or(anyhow!(
+                    "No block states found for block type, {}",
+                    block_type
+                ))?;
+                Ok(Self::new(&state_string))
+            }
+            BlockStates::Multipart { cases: _ } => Err(anyhow!(
+                "Initial block state for multipart blocks is not implemented yet. Block type: {}",
+                block_type
+            )),
+        }?;
+        for (prop, value) in state.0.iter_mut() {
+            *value = default_state_value(prop)?;
+        }
+        Ok(state)
+    }
+
     pub fn new(state_values: &str) -> Self {
         BlockState(
             state_values
@@ -61,20 +89,37 @@ impl BlockState {
         self.0.entry(prop).and_modify(|v| *v = value);
     }
 
-    /// Set facing for a block if it already has a facing state.
+    /// Set facing for a block that supports it. Fails silently otherwise.
     pub fn set_facing(&mut self, face: BlockFace) {
         let facing = match face {
             BlockFace::North => Some("north"),
             BlockFace::South => Some("south"),
             BlockFace::East => Some("east"),
             BlockFace::West => Some("west"),
-            BlockFace::Up => None, // repeaters only accept horizontal facing values
-            BlockFace::Down => None,
+            BlockFace::Up => Some("up"),
+            BlockFace::Down => Some("down"),
         };
         if let Some(facing) = facing {
             self.update("facing".to_owned(), StateValue::String(facing.to_owned()));
         }
     }
+}
+
+fn default_state_value(prop: &str) -> Result<StateValue> {
+    match prop {
+        "delay" => Ok(StateValue::String("1".to_owned())),
+        "facing" => Ok(StateValue::String("south".to_owned())),
+        "locked" => Ok(StateValue::Bool(false)),
+        "powered" => Ok(StateValue::Bool(false)),
+        _ => Err(anyhow!("No default state value for property, {}", prop)),
+    }
+}
+
+fn get_block_states(asset_pack: AssetPack, block_type: &str) -> Result<BlockStates> {
+    let block_states = asset_pack
+        .load_blockstates(block_type)
+        .with_context(|| format!("no block states found for \"{}\"", block_type))?;
+    Ok(block_states)
 }
 
 #[cfg(test)]
@@ -85,6 +130,7 @@ mod tests {
         api::AssetPack,
         schemas::{
             blockstates::{multipart::StateValue, ModelProperties, Variant},
+            models::BlockFace,
             BlockStates,
         },
     };
@@ -127,9 +173,53 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn initial_state_for_repeater() -> Result<()> {
+        let state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
+        let expected = BlockState::new("delay=1,facing=south,locked=false,powered=false");
+        assert_eq!(state, expected, "initial state for repeater");
+        Ok(())
+    }
+
+    #[test]
+    fn sets_allowed_facing_value() -> Result<()> {
+        let mut state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
+        state.set_facing(BlockFace::West);
+        assert_eq!(
+            state.0.get("facing"),
+            Some(&StateValue::String("west".to_owned())),
+            "facing should be set to 'west'"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn does_not_set_disallowed_facing_value() -> Result<()> {
+        let mut state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
+        let initial_face = state.0.get("facing").cloned();
+        state.set_facing(BlockFace::Up);
+        assert_eq!(
+            state.0.get("facing").cloned(),
+            initial_face,
+            "facing hasn't changed"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn does_note_set_disallowed_state_property() -> Result<()> {
+        let mut state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
+        state.update("foo".to_owned(), StateValue::Bool(true));
+        assert_eq!(state.0.get("foo"), None, "facing hasn't changed");
+        Ok(())
+    }
+
+    fn test_asset_pack() -> AssetPack {
+        AssetPack::at_path("assets/minecraft/")
+    }
+
     fn get_blockstates(block_type: &str) -> Result<BlockStates> {
-        let assets = AssetPack::at_path("assets/minecraft/");
-        let block_states = assets
+        let block_states = test_asset_pack()
             .load_blockstates(block_type)
             .with_context(|| format!("no block states found for \"{}\"", block_type))?;
         Ok(block_states)

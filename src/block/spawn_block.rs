@@ -14,10 +14,7 @@ use minecraft_assets::{
     },
 };
 
-use crate::{
-    constants::{block_from_palette, BLOCK_FACES},
-    lines::LineMaterial,
-};
+use crate::{constants::BLOCK_FACES, lines::LineMaterial};
 
 use super::{
     bounding_box::{
@@ -74,7 +71,9 @@ pub fn spawn_block_preview_for_block_picker(
     // Component to insert in the entity, and into children.
     recursive_component: Option<impl Component + Clone>,
 ) -> Result<Entity> {
-    let (_, initial_state) = block_from_palette(block_type);
+    // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
+    let asset_pack = AssetPack::at_path("assets/minecraft/");
+    let initial_state = BlockState::initial_state_for(asset_pack, block_type)?;
     let (model, model_properties) = get_block_model_metadata(block_type, &initial_state)?;
     spawn_block_common(
         commands,

@@ -1,9 +1,10 @@
 use crate::{
-    block::spawn_block,
-    constants::{block_from_palette, BLOCKS},
+    block::{spawn_block, BlockState},
+    constants::BLOCKS,
     lines::LineMaterial,
 };
 use bevy::prelude::*;
+use minecraft_assets::api::AssetPack;
 
 pub struct RedstonePlugin;
 
@@ -21,7 +22,14 @@ fn setup_floor(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
-    let block = block_from_palette("sandstone");
+    // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
+    let asset_pack = AssetPack::at_path("assets/minecraft/");
+
+    let block_type = "sandstone";
+    let block = (
+        block_type,
+        BlockState::initial_state_for(asset_pack, block_type).unwrap(),
+    );
     for x in 0..16 {
         for z in 0..16 {
             let transform =
