@@ -12,6 +12,10 @@ To run this thing you basically need two things:
 - a copy of Minecraft's game assets
 - OS dependencies listed [here](https://bevyengine.org/learn/book/getting-started/setup/#install-os-dependencies)
 
+Wayland dependencies:
+- libwayland-dev
+- libxkbcommon-dev
+
 ### Rust toolchain
 
 - install `rustup` by following [these instructions](https://www.rust-lang.org/tools/install)

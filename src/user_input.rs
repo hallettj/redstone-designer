@@ -25,7 +25,7 @@ pub enum Action {
     UseActiveTool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct KeyBindings(Vec<Binding>);
 
 impl Default for KeyBindings {
@@ -140,7 +140,7 @@ pub enum Key {
     Mouse(MouseButton),
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 struct SelectedTool {
     active_tool: Tool,
     last_active_tool: Tool,
@@ -159,7 +159,7 @@ impl SelectedTool {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct InputState {
     mode: Mode,
     last_mode: Mode,
@@ -352,6 +352,7 @@ fn is_binding_invoked(
     if !matches_mode(mode, binding) {
         return false;
     }
+    // TODO: register Tap binding on press instead of release
     match binding.binding_style {
         BindingStyle::Tap => {
             just_released(binding.key, mouse, keyboard)

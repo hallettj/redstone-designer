@@ -10,7 +10,7 @@ mod redstone;
 mod user_input;
 mod util;
 
-use bevy::{prelude::*, render::texture::ImageSettings};
+use bevy::{prelude::*, render::texture::ImagePlugin};
 use bevy_rapier3d::prelude::*;
 use block::BlockPlugin;
 use block_picker::BlockPickerPlugin;
@@ -22,8 +22,7 @@ use user_input::UserInputPlugin;
 fn main() {
     App::new()
         .insert_resource(ClearColor(Color::rgb(0.43, 0.69, 1.0))) // sky color
-        .insert_resource(ImageSettings::default_nearest())
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         // .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(CursorPlugin)

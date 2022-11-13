@@ -21,7 +21,7 @@ impl Plugin for PlacingBlockPlugin {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 struct BlockRotation {
     direction: Option<BlockFace>,
 }

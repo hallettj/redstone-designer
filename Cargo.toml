@@ -5,14 +5,22 @@ edition = "2021"
 
 # NOTE: remove "dynamic" feature from bevy when compiling a release build to
 # avoid the need to bundle libbevy_dylib
+# NOTE: we are using an unreleased version of bevy 0.9.0-dev to get the fix from
+# https://github.com/bevyengine/bevy/pull/6047
 [dependencies]
 anyhow = "1.0.66"
-bevy = { version = "0.8", features = ["dynamic"] }
-bevy_rapier3d = { version = "0.17.0", features = ["parallel", "wasm-bindgen"] }
+bevy = { version = "^0.9.0-dev", features = ["dynamic", "wayland"] }
+bevy_rapier3d = { version = "0.18.0", features = ["parallel", "wasm-bindgen"] }
 minecraft-assets = "0.0.6"
 
 [dev-dependencies]
 maplit = "1.0.2"
+
+# All of the patches below are necessary to get bevy 0.9.0-dev
+[patch.crates-io]
+bevy = { git = "https://github.com/bevyengine/bevy.git", branch = "main" }
+bevy_rapier3d = { git = "https://github.com/devil-ira/bevy_rapier.git", branch = "bevy-0.9" }
+nalgebra = { git = "https://github.com/dimforge/nalgebra.git", branch = "dev" }
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]

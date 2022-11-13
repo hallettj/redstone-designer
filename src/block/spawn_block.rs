@@ -103,7 +103,7 @@ fn spawn_block_common(
     let elements = model
         .elements
         .ok_or(anyhow!("block model has no elements"))?;
-    let mut block = commands.spawn_bundle(BlockBundle {
+    let mut block = commands.spawn(BlockBundle {
         transform,
         ..default()
     });
@@ -159,7 +159,7 @@ fn spawn_block_outline(
     bounding_box: (Vec3, Vec3),
 ) {
     parent
-        .spawn_bundle(MaterialMeshBundle {
+        .spawn(MaterialMeshBundle {
             mesh: meshes.add(Mesh::from(bounding_box_to_line_list(bounding_box))),
             material: materials.add(LineMaterial::new(Color::BLACK)),
             visibility: Visibility { is_visible: false },
@@ -182,7 +182,7 @@ fn spawn_element(
         if let Some((mesh, transform)) = mesh_for_face(&element, face) {
             // TODO: would there be a benefit to memoizing materials?
             let material = materials.add(material_for_face(asset_server, &element, face));
-            let mut element = parent.spawn_bundle(PbrBundle {
+            let mut element = parent.spawn(PbrBundle {
                 mesh: meshes.add(mesh),
                 material,
                 transform,

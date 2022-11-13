@@ -139,7 +139,7 @@ fn setup_camera(mut commands: Commands) {
     let radius = translation.distance(focus);
 
     commands
-        .spawn_bundle(Camera3dBundle {
+        .spawn(Camera3dBundle {
             transform: Transform::from_translation(translation).looking_at(focus, Vec3::Y),
             ..default()
         })

@@ -19,7 +19,7 @@ impl Plugin for CursorPlugin {
     }
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Resource)]
 pub struct Cursor {
     /// Block under the cursor
     pub current_block: Option<Entity>,

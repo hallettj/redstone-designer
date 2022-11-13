@@ -44,7 +44,7 @@ impl Plugin for BlockPickerPlugin {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Resource)]
 pub struct SelectedBlockType {
     pub block: (&'static str, BlockState),
 }
@@ -87,7 +87,7 @@ fn spawn_block_picker(
         .collect::<Vec<_>>();
 
     commands
-        .spawn_bundle(NodeBundle {
+        .spawn(NodeBundle {
             style: Style {
                 display: Display::None,
                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
@@ -95,30 +95,30 @@ fn spawn_block_picker(
                 justify_content: JustifyContent::Center,
                 ..default()
             },
-            color: Color::NONE.into(),
+            background_color: Color::NONE.into(),
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn_bundle(NodeBundle {
+                .spawn(NodeBundle {
                     style: Style {
                         size: Size::new(Val::Percent(66.0), Val::Percent(66.0)),
                         border: UiRect::all(Val::Px(5.0)),
                         ..default()
                     },
-                    color: Color::rgb(0.6, 0.6, 0.6).into(),
+                    background_color: Color::rgb(0.6, 0.6, 0.6).into(),
                     ..default()
                 })
                 .with_children(|parent| {
                     parent
-                        .spawn_bundle(NodeBundle {
+                        .spawn(NodeBundle {
                             style: Style {
                                 size: Size::new(Val::Percent(100.0), Val::Percent(100.0)),
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::FlexStart,
                                 ..default()
                             },
-                            color: PICKER_BACKGROUND_COLOR.into(),
+                            background_color: PICKER_BACKGROUND_COLOR.into(),
                             ..default()
                         })
                         .with_children(|parent| {
@@ -127,7 +127,7 @@ fn spawn_block_picker(
                                 let asset_pack = AssetPack::at_path("assets/minecraft/");
 
                                 parent
-                                    .spawn_bundle(ButtonBundle {
+                                    .spawn(ButtonBundle {
                                         image: block_preview_image_handles[index].clone().into(),
                                         style: Style {
                                             size: Size::new(
@@ -141,7 +141,7 @@ fn spawn_block_picker(
                                             },
                                             ..default()
                                         },
-                                        color: NORMAL_BUTTON_COLOR.into(),
+                                        background_color: NORMAL_BUTTON_COLOR.into(),
                                         ..default()
                                     })
                                     .insert(BlockPickerButton {
@@ -155,7 +155,7 @@ fn spawn_block_picker(
                                         // It seems that we need to have a child for the button to
                                         // work.
                                         parent
-                                            .spawn_bundle(TextBundle::from_section("", default()));
+                                            .spawn(TextBundle::from_section("", default()));
                                     });
                             }
                         });
@@ -221,7 +221,7 @@ fn spawn_block_preview(
     commands.entity(block).insert(BlockPreview);
 
     commands
-        .spawn_bundle(Camera3dBundle {
+        .spawn(Camera3dBundle {
             camera_3d: Camera3d {
                 clear_color: ClearColorConfig::Custom(Color::rgba(1.0, 1.0, 1.0, 0.0)),
                 ..default()
@@ -278,7 +278,10 @@ fn toggle_block_picker_helper(open: bool, query: &mut Query<(&mut BlockPicker, &
 }
 
 fn button_system(
-    mut button_query: Query<(&Interaction, &BlockPickerButton, &mut UiColor), Changed<Interaction>>,
+    mut button_query: Query<
+        (&Interaction, &BlockPickerButton, &mut BackgroundColor),
+        Changed<Interaction>,
+    >,
     mut picker_query: Query<(&mut BlockPicker, &mut Style)>,
     mut selected: ResMut<SelectedBlockType>,
 ) {
