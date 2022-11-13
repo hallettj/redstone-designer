@@ -20,6 +20,8 @@ use crate::{
 pub fn bounding_box_for_block_model(model_name: &str, elements: &[Element]) -> (Vec3, Vec3) {
     match model_name {
         "repeater_2tick" => bounding_box_for_elements(&elements[0..1]),
+        "redstone_torch" => bounding_box_for_elements(&elements[0..1]),
+        "redstone_torch_off" => bounding_box_for_elements(&elements[0..1]),
         _ => bounding_box_for_elements(elements),
     }
 }
@@ -112,7 +114,8 @@ pub fn bounding_box_to_collider(bounding_box: (Vec3, Vec3)) -> Collider {
         Vec3::new(min_x, max_y, max_z),
         Vec3::new(max_x, min_y, max_z),
         Vec3::new(max_x, max_y, max_z),
-    ]).unwrap()
+    ])
+    .unwrap()
 }
 
 /// Compute a bounding box that encompasses all of the given elements.

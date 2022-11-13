@@ -205,7 +205,7 @@ fn material_for_face(
             let image_handle = asset_server.load(&path);
             return StandardMaterial {
                 base_color_texture: Some(image_handle),
-                alpha_mode: AlphaMode::Opaque,
+                alpha_mode: AlphaMode::Mask(0.9),
                 unlit: true,
                 ..default()
             };

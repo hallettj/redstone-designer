@@ -141,6 +141,7 @@ fn default_state_value(prop: &str) -> Result<StateValue> {
     match prop {
         "delay" => Ok(StateValue::String("1".to_owned())),
         "facing" => Ok(StateValue::String("south".to_owned())),
+        "lit" => Ok(StateValue::Bool(false)),
         "locked" => Ok(StateValue::Bool(false)),
         "powered" => Ok(StateValue::Bool(false)),
         _ => Err(anyhow!("No default state value for property, {}", prop)),

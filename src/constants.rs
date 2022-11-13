@@ -30,7 +30,12 @@ pub const BLOCK_FACE_NORMALS: [(BlockFace, Vec3); 6] = [
 ];
 
 /// Available block types paired with initial state.
-pub const BLOCK_PALETTE: [&'static str; 3] = ["iron_block", "repeater", "sandstone"];
+pub const BLOCK_PALETTE: [&'static str; 4] = [
+    "iron_block",
+    "redstone_torch",
+    "repeater",
+    "sandstone",
+];
 
 /// Blocks previews for the block picker are rendered to textures via a camera in this layer.
 /// Cameras and other entities may be associated with one or more layers; a camera will only render
