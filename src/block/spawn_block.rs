@@ -179,12 +179,13 @@ fn spawn_element(
     component: Option<impl Component + Clone>,
 ) {
     for face in BLOCK_FACES {
-        if let Some(mesh) = mesh_for_face(&element, face) {
+        if let Some((mesh, transform)) = mesh_for_face(&element, face) {
             // TODO: would there be a benefit to memoizing materials?
             let material = materials.add(material_for_face(asset_server, &element, face));
             let mut element = parent.spawn_bundle(PbrBundle {
                 mesh: meshes.add(mesh),
                 material,
+                transform,
                 ..default()
             });
             if let Some(component) = component.clone() {
@@ -228,7 +229,10 @@ fn texture_path(texture: &Texture) -> Option<String> {
     })
 }
 
-fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
+/// Minecraft models are made up of elements (boxes) which are made up of faces which can each have
+/// a different texture and UV mapping. This function returns a mesh for a single element face
+/// paired with a transform to move it into the correct position relative to the rest of the model.
+fn mesh_for_face(element: &Element, face: BlockFace) -> Option<(Mesh, Transform)> {
     // Minecraft uses the corner of the block as its coordinate origin. But we want to use the
     // center of the block. To compensate, translate each vertex position by half a block.
     let [min_x, min_y, min_z] = element.from.map(|c| c - 8.0);
@@ -254,40 +258,40 @@ fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
     // on north, south, east, and west faces min_y maps to max_v, and max_y maps to min_v.
     let vertices = match face {
         BlockFace::Up => [
-            ([max_x, max_y, min_z], [0., 1.0, 0.], [max_u, min_v]),
-            ([min_x, max_y, min_z], [0., 1.0, 0.], [min_u, min_v]),
-            ([min_x, max_y, max_z], [0., 1.0, 0.], [min_u, max_v]),
-            ([max_x, max_y, max_z], [0., 1.0, 0.], [max_u, max_v]),
+            ([max_x, 0.0, min_z], [0., 1.0, 0.], [max_u, min_v]),
+            ([min_x, 0.0, min_z], [0., 1.0, 0.], [min_u, min_v]),
+            ([min_x, 0.0, max_z], [0., 1.0, 0.], [min_u, max_v]),
+            ([max_x, 0.0, max_z], [0., 1.0, 0.], [max_u, max_v]),
         ],
         BlockFace::Down => [
-            ([max_x, min_y, max_z], [0., -1.0, 0.], [max_u, min_v]),
-            ([min_x, min_y, max_z], [0., -1.0, 0.], [min_u, min_v]),
-            ([min_x, min_y, min_z], [0., -1.0, 0.], [min_u, max_v]),
-            ([max_x, min_y, min_z], [0., -1.0, 0.], [max_u, max_v]),
+            ([max_x, 0.0, max_z], [0., -1.0, 0.], [max_u, min_v]),
+            ([min_x, 0.0, max_z], [0., -1.0, 0.], [min_u, min_v]),
+            ([min_x, 0.0, min_z], [0., -1.0, 0.], [min_u, max_v]),
+            ([max_x, 0.0, min_z], [0., -1.0, 0.], [max_u, max_v]),
         ],
         BlockFace::North => [
-            ([min_x, max_y, min_z], [0., 0., -1.0], [max_u, min_v]),
-            ([max_x, max_y, min_z], [0., 0., -1.0], [min_u, min_v]),
-            ([max_x, min_y, min_z], [0., 0., -1.0], [min_u, max_v]),
-            ([min_x, min_y, min_z], [0., 0., -1.0], [max_u, max_v]),
+            ([min_x, max_y, 0.0], [0., 0., -1.0], [max_u, min_v]),
+            ([max_x, max_y, 0.0], [0., 0., -1.0], [min_u, min_v]),
+            ([max_x, min_y, 0.0], [0., 0., -1.0], [min_u, max_v]),
+            ([min_x, min_y, 0.0], [0., 0., -1.0], [max_u, max_v]),
         ],
         BlockFace::South => [
-            ([min_x, min_y, max_z], [0., 0., 1.0], [min_u, max_v]),
-            ([max_x, min_y, max_z], [0., 0., 1.0], [max_u, max_v]),
-            ([max_x, max_y, max_z], [0., 0., 1.0], [max_u, min_v]),
-            ([min_x, max_y, max_z], [0., 0., 1.0], [min_u, min_v]),
+            ([min_x, min_y, 0.0], [0., 0., 1.0], [min_u, max_v]),
+            ([max_x, min_y, 0.0], [0., 0., 1.0], [max_u, max_v]),
+            ([max_x, max_y, 0.0], [0., 0., 1.0], [max_u, min_v]),
+            ([min_x, max_y, 0.0], [0., 0., 1.0], [min_u, min_v]),
         ],
         BlockFace::East => [
-            ([max_x, min_y, min_z], [1.0, 0., 0.], [max_u, max_v]),
-            ([max_x, max_y, min_z], [1.0, 0., 0.], [max_u, min_v]),
-            ([max_x, max_y, max_z], [1.0, 0., 0.], [min_u, min_v]),
-            ([max_x, min_y, max_z], [1.0, 0., 0.], [min_u, max_v]),
+            ([0.0, min_y, min_z], [1.0, 0., 0.], [max_u, max_v]),
+            ([0.0, max_y, min_z], [1.0, 0., 0.], [max_u, min_v]),
+            ([0.0, max_y, max_z], [1.0, 0., 0.], [min_u, min_v]),
+            ([0.0, min_y, max_z], [1.0, 0., 0.], [min_u, max_v]),
         ],
         BlockFace::West => [
-            ([min_x, min_y, max_z], [-1.0, 0., 0.], [max_u, max_v]),
-            ([min_x, max_y, max_z], [-1.0, 0., 0.], [max_u, min_v]),
-            ([min_x, max_y, min_z], [-1.0, 0., 0.], [min_u, min_v]),
-            ([min_x, min_y, min_z], [-1.0, 0., 0.], [min_u, max_v]),
+            ([0.0, min_y, max_z], [-1.0, 0., 0.], [max_u, max_v]),
+            ([0.0, max_y, max_z], [-1.0, 0., 0.], [max_u, min_v]),
+            ([0.0, max_y, min_z], [-1.0, 0., 0.], [min_u, min_v]),
+            ([0.0, min_y, min_z], [-1.0, 0., 0.], [min_u, max_v]),
         ],
     };
 
@@ -302,5 +306,15 @@ fn mesh_for_face(element: &Element, face: BlockFace) -> Option<Mesh> {
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
     mesh.set_indices(Some(indices));
-    Some(mesh)
+
+    let transform = match face {
+        BlockFace::Up => Transform::from_translation(Vec3::new(0.0, max_y, 0.0)),
+        BlockFace::Down => Transform::from_translation(Vec3::new(0.0, min_y, 0.0)),
+        BlockFace::North => Transform::from_translation(Vec3::new(0.0, 0.0, min_z)),
+        BlockFace::South => Transform::from_translation(Vec3::new(0.0, 0.0, max_z)),
+        BlockFace::East => Transform::from_translation(Vec3::new(max_x, 0.0, 0.0)),
+        BlockFace::West => Transform::from_translation(Vec3::new(min_x, 0.0, 0.0)),
+    };
+
+    Some((mesh, transform))
 }
