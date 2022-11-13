@@ -14,8 +14,11 @@ use minecraft_assets::{
 /// The current state of a specific block. Matches against block states defined in
 /// minecraft/assets/minecraft/blockstates/ to determine which block model to render, and how to
 /// render it.
-#[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct BlockState(HashMap<String, StateValue>);
+#[derive(Component, Clone, Debug, PartialEq)]
+pub struct BlockState {
+    block_type: String,
+    values: HashMap<String, StateValue>,
+}
 
 impl BlockState {
     /// To calculate the initial state for a block type we load an arbitrary state from the list of
@@ -29,34 +32,39 @@ impl BlockState {
                     "No block states found for block type, {}",
                     block_type
                 ))?;
-                Ok(Self::new(&state_string))
+                Ok(Self::new(block_type, &state_string))
             }
             BlockStates::Multipart { cases: _ } => Err(anyhow!(
                 "Initial block state for multipart blocks is not implemented yet. Block type: {}",
                 block_type
             )),
         }?;
-        for (prop, value) in state.0.iter_mut() {
+        for (prop, value) in state.values.iter_mut() {
             *value = default_state_value(prop)?;
         }
         Ok(state)
     }
 
-    pub fn new(state_values: &str) -> Self {
-        BlockState(
-            state_values
-                .split(',')
-                .filter_map(|state_value| {
-                    if state_value == "" {
-                        None
-                    } else {
-                        let split: Vec<&str> = state_value.split('=').collect();
-                        Some((split[0], split[1]))
-                    }
-                })
-                .map(|(state, value)| (String::from(state), StateValue::from(value)))
-                .collect(),
-        )
+    pub fn new(block_type: &str, state_values: &str) -> Self {
+        BlockState {
+            block_type: block_type.to_owned(),
+            values: Self::parse(state_values),
+        }
+    }
+
+    fn parse(input: &str) -> HashMap<String, StateValue> {
+        input
+            .split(',')
+            .filter_map(|state_value| {
+                if state_value == "" {
+                    None
+                } else {
+                    let split: Vec<&str> = state_value.split('=').collect();
+                    Some((split[0], split[1]))
+                }
+            })
+            .map(|(state, value)| (String::from(state), StateValue::from(value)))
+            .collect()
     }
 
     pub fn active_variant(&self, block_states: BlockStates) -> Variant {
@@ -64,7 +72,11 @@ impl BlockState {
         let mut variants: Vec<_> = cases
             .into_iter()
             .filter_map(|case| {
-                if case.applies(self.0.iter().map(|(state, value)| (state.as_str(), value))) {
+                if case.applies(
+                    self.values
+                        .iter()
+                        .map(|(state, value)| (state.as_str(), value)),
+                ) {
                     Some(case.apply)
                 } else {
                     None
@@ -83,14 +95,30 @@ impl BlockState {
         }
     }
 
-    /// Set a state property if the named property is already present. (Each block type has a fixed
-    /// set of allowed state properties that are included with its initial state.)
-    pub fn update(&mut self, prop: String, value: StateValue) {
-        self.0.entry(prop).and_modify(|v| *v = value);
+    /// Sets a property value if that would result in a valid block state. We check validity by
+    /// checking against all block state variants for the given block type. Fails silently if the
+    /// update is not valid.
+    /// TODO: store reference to asset pack in struct instead of requiring argument
+    pub fn update(&mut self, asset_pack: AssetPack, prop: String, value: StateValue) {
+        let mut updated = self.values.clone();
+        updated.entry(prop).and_modify(|v| *v = value);
+        let matches_valid_state = match get_block_states(asset_pack, &self.block_type).unwrap() {
+            BlockStates::Variants { variants } => variants
+                .keys()
+                .any(|state_string| Self::parse(state_string) == updated),
+            BlockStates::Multipart { cases: _ } => Err(anyhow!(
+                "Initial block state for multipart blocks is not implemented yet. Block type: {}",
+                self.block_type
+            ))
+            .unwrap(),
+        };
+        if matches_valid_state {
+            self.values = updated;
+        }
     }
 
     /// Set facing for a block that supports it. Fails silently otherwise.
-    pub fn set_facing(&mut self, face: BlockFace) {
+    pub fn set_facing(&mut self, asset_pack: AssetPack, face: BlockFace) {
         let facing = match face {
             BlockFace::North => Some("north"),
             BlockFace::South => Some("south"),
@@ -100,7 +128,11 @@ impl BlockState {
             BlockFace::Down => Some("down"),
         };
         if let Some(facing) = facing {
-            self.update("facing".to_owned(), StateValue::String(facing.to_owned()));
+            self.update(
+                asset_pack,
+                "facing".to_owned(),
+                StateValue::String(facing.to_owned()),
+            );
         }
     }
 }
@@ -124,6 +156,8 @@ fn get_block_states(asset_pack: AssetPack, block_type: &str) -> Result<BlockStat
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use anyhow::{Context, Result};
     use maplit::hashmap;
     use minecraft_assets::{
@@ -139,26 +173,29 @@ mod tests {
 
     #[test]
     fn constructs_empty_state() {
-        let state = BlockState::new("");
-        assert_eq!(state, BlockState::default());
+        let state = BlockState::new("sandstone", "");
+        assert_eq!(state.values, HashMap::default());
     }
 
     #[test]
     fn constructs_non_empty_state() {
-        let actual = BlockState::new("delay=2,facing=north,locked=false,powered=true");
-        let expected = BlockState(hashmap! {
-            "delay".to_string() => StateValue::String("2".to_string()),
-            "facing".to_string() => StateValue::String("north".to_string()),
-            "locked".to_string() => StateValue::Bool(false),
-            "powered".to_string() => StateValue::Bool(true),
-        });
+        let actual = BlockState::new("repeater", "delay=2,facing=north,locked=false,powered=true");
+        let expected = BlockState {
+            block_type: "repeater".to_owned(),
+            values: hashmap! {
+                "delay".to_string() => StateValue::String("2".to_string()),
+                "facing".to_string() => StateValue::String("north".to_string()),
+                "locked".to_string() => StateValue::Bool(false),
+                "powered".to_string() => StateValue::Bool(true),
+            },
+        };
         assert_eq!(actual, expected)
     }
 
     #[test]
     fn selects_the_correct_variant() -> Result<()> {
         let block_states = get_blockstates("repeater")?;
-        let state = BlockState::new("delay=2,facing=north,locked=false,powered=true");
+        let state = BlockState::new("repeater", "delay=2,facing=north,locked=false,powered=true");
         let variant = state.active_variant(block_states);
         assert_eq!(
             variant,
@@ -176,7 +213,10 @@ mod tests {
     #[test]
     fn initial_state_for_repeater() -> Result<()> {
         let state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
-        let expected = BlockState::new("delay=1,facing=south,locked=false,powered=false");
+        let expected = BlockState::new(
+            "repeater",
+            "delay=1,facing=south,locked=false,powered=false",
+        );
         assert_eq!(state, expected, "initial state for repeater");
         Ok(())
     }
@@ -184,9 +224,9 @@ mod tests {
     #[test]
     fn sets_allowed_facing_value() -> Result<()> {
         let mut state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
-        state.set_facing(BlockFace::West);
+        state.set_facing(test_asset_pack(), BlockFace::West);
         assert_eq!(
-            state.0.get("facing"),
+            state.values.get("facing"),
             Some(&StateValue::String("west".to_owned())),
             "facing should be set to 'west'"
         );
@@ -196,10 +236,10 @@ mod tests {
     #[test]
     fn does_not_set_disallowed_facing_value() -> Result<()> {
         let mut state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
-        let initial_face = state.0.get("facing").cloned();
-        state.set_facing(BlockFace::Up);
+        let initial_face = state.values.get("facing").cloned();
+        state.set_facing(test_asset_pack(), BlockFace::Up);
         assert_eq!(
-            state.0.get("facing").cloned(),
+            state.values.get("facing").cloned(),
             initial_face,
             "facing hasn't changed"
         );
@@ -209,8 +249,8 @@ mod tests {
     #[test]
     fn does_note_set_disallowed_state_property() -> Result<()> {
         let mut state = BlockState::initial_state_for(test_asset_pack(), "repeater")?;
-        state.update("foo".to_owned(), StateValue::Bool(true));
-        assert_eq!(state.0.get("foo"), None, "facing hasn't changed");
+        state.update(test_asset_pack(), "foo".to_owned(), StateValue::Bool(true));
+        assert_eq!(state.values.get("foo"), None, "facing hasn't changed");
         Ok(())
     }
 
