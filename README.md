@@ -6,17 +6,25 @@ getting started then please feel free to take a look.
 
 ## Prerequisites
 
-To run this thing you basically need two things:
+To get the necessary Rust toolchain and system libraries automatically use Nix.
+Follow the instructions in [flake.nix](./flake.nix). Otherwise install the
+dependencies listed below. You need to get Minecraft assets manually either way.
+
+If you are installing dependencies manually you will need:
 
 - the Rust nightly toolchain
-- a copy of Minecraft's game assets
 - OS dependencies listed [here](https://bevyengine.org/learn/book/getting-started/setup/#install-os-dependencies)
 
-Wayland dependencies:
+On Linux you also need these dependencies for Wayland support:
+
 - libwayland-dev
 - libxkbcommon-dev
 
+Finally you will need a copy of Minecraft.
+
 ### Rust toolchain
+
+Either use Nix or,
 
 - install `rustup` by following [these instructions](https://www.rust-lang.org/tools/install)
 - add the nightly channel by running `$ rustup install nightly`
