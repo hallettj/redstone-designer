@@ -30,9 +30,10 @@ pub const BLOCK_FACE_NORMALS: [(BlockFace, Vec3); 6] = [
 ];
 
 /// Available block types paired with initial state.
-pub const BLOCK_PALETTE: [&'static str; 4] = [
+pub const BLOCK_PALETTE: [&'static str; 5] = [
     "iron_block",
     "redstone_torch",
+    "redstone_wire",
     "repeater",
     "sandstone",
 ];

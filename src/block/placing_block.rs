@@ -5,7 +5,6 @@ use crate::lines::LineMaterial;
 use crate::user_input::{sent_command, UiCommand};
 use crate::util::{vec_to_block_face, HasRelativeDirection};
 use bevy::prelude::*;
-use minecraft_assets::api::AssetPack;
 use minecraft_assets::schemas::models::BlockFace;
 
 use super::spawn_block::spawn_block;
@@ -38,12 +37,9 @@ fn place_block(
     mut line_materials: ResMut<Assets<LineMaterial>>,
 ) {
     if sent_command(user_input, UiCommand::PlaceBlock) {
-        // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
-        let asset_pack = AssetPack::at_path("assets/minecraft/");
-
         let (block_type, mut block_state) = selected.block.clone();
         if let Some(direction) = block_rotation.direction {
-            block_state.set_facing(asset_pack, direction);
+            let _ = block_state.set_facing(direction);
         }
         if let Some(transform) = cursor.place_block_transform {
             spawn_block(

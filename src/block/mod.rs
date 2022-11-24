@@ -1,3 +1,4 @@
+mod behavior;
 mod block_state;
 mod bounding_box;
 mod placing_block;

@@ -9,7 +9,6 @@ use bevy::{
         },
     },
 };
-use minecraft_assets::api::AssetPack;
 
 use crate::{
     block::{spawn_block_preview_for_block_picker, BlockState},
@@ -28,14 +27,12 @@ pub struct BlockPickerPlugin;
 
 impl Plugin for BlockPickerPlugin {
     fn build(&self, app: &mut App) {
-        // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
-        let asset_pack = AssetPack::at_path("assets/minecraft/");
         let initial_block_type = BLOCK_PALETTE[0];
 
         app.insert_resource(SelectedBlockType {
             block: (
                 initial_block_type,
-                BlockState::initial_state_for(asset_pack, initial_block_type).unwrap(),
+                BlockState::initial_state_for(initial_block_type),
             ),
         })
         .add_startup_system(spawn_block_picker)
@@ -123,9 +120,6 @@ fn spawn_block_picker(
                         })
                         .with_children(|parent| {
                             for (index, block_type) in BLOCK_PALETTE.iter().enumerate() {
-                                // TODO: Get AssetPack as a resource; implement custom loader that uses AssetServer
-                                let asset_pack = AssetPack::at_path("assets/minecraft/");
-
                                 parent
                                     .spawn(ButtonBundle {
                                         image: block_preview_image_handles[index].clone().into(),
@@ -147,15 +141,13 @@ fn spawn_block_picker(
                                     .insert(BlockPickerButton {
                                         block: (
                                             block_type,
-                                            BlockState::initial_state_for(asset_pack, block_type)
-                                                .unwrap(),
+                                            BlockState::initial_state_for(block_type),
                                         ),
                                     })
                                     .with_children(|parent| {
                                         // It seems that we need to have a child for the button to
                                         // work.
-                                        parent
-                                            .spawn(TextBundle::from_section("", default()));
+                                        parent.spawn(TextBundle::from_section("", default()));
                                     });
                             }
                         });
