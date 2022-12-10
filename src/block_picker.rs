@@ -11,9 +11,9 @@ use bevy::{
 };
 
 use crate::{
-    block::{spawn_block_preview_for_block_picker, BlockState},
+    block::spawn_block_preview_for_block_picker,
     constants::{BLOCKS, BLOCK_PALETTE, BLOCK_PREVIEW_LAYER},
-    user_input::UiCommand,
+    user_input::UiCommand, block_state::BlockState,
 };
 
 const BLOCK_PREVIEW_SIZE: u32 = 100; // px

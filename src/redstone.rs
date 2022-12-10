@@ -1,7 +1,7 @@
 use crate::{
-    block::{spawn_block, BlockState},
-    constants::BLOCKS,
-    lines::LineMaterial,
+    block::spawn_block,
+    constants::{BLOCKS, WORLD_SIZE},
+    lines::LineMaterial, block_state::BlockState,
 };
 use bevy::prelude::*;
 
@@ -23,8 +23,8 @@ fn setup_floor(
 ) {
     let block_type = "sandstone";
     let block = (block_type, BlockState::initial_state_for(block_type));
-    for x in 0..16 {
-        for z in 0..16 {
+    for x in 0..WORLD_SIZE {
+        for z in 0..WORLD_SIZE {
             let transform =
                 Transform::from_xyz(x as f32 * BLOCKS, -1.0 * BLOCKS, z as f32 * BLOCKS);
             spawn_block(

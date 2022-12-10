@@ -1,3 +1,5 @@
+mod states_by_block_type;
+
 use std::collections::HashMap;
 
 use anyhow::{anyhow, Result};
@@ -8,14 +10,14 @@ use minecraft_assets::schemas::{
     BlockStates,
 };
 
-use super::behavior::state_values_for;
+use states_by_block_type::state_values_for;
 
 /// The current state of a specific block. Matches against block states defined in
 /// minecraft/assets/minecraft/blockstates/ to determine which block model to render, and how to
 /// render it.
 #[derive(Component, Clone, Debug, PartialEq)]
 pub struct BlockState {
-    block_type: String,
+    pub block_type: String,
     values: HashMap<String, StateValue>,
 }
 

@@ -1,5 +1,4 @@
 mod behavior;
-mod block_state;
 mod bounding_box;
 mod placing_block;
 mod spawn_block;
@@ -9,10 +8,8 @@ use bevy::prelude::*;
 use crate::{cursor::Cursor, lines::LineMaterial};
 
 use self::placing_block::PlacingBlockPlugin;
-pub use self::{
-    block_state::BlockState,
-    spawn_block::{spawn_block, spawn_block_preview_for_block_picker},
-};
+pub use self::spawn_block::{spawn_block, spawn_block_preview_for_block_picker};
+pub use behavior::{is_flat_surface, requires_flat_surface};
 
 #[derive(Component, Clone, Default)]
 pub struct BlockOutline;

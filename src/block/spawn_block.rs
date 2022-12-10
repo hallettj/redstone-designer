@@ -1,5 +1,5 @@
 use crate::block::BlockBundle;
-use crate::{block::block_state::BlockState, util::degrees_to_radians};
+use crate::{block_state::BlockState, util::degrees_to_radians};
 use anyhow::{anyhow, Context, Result};
 use bevy::{
     prelude::*,

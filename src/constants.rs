@@ -9,6 +9,9 @@ pub const PIXELS: f32 = 1.0;
 /// one Minecraft "pixel". A Minecraft block is 16 pixels.
 pub const BLOCKS: f32 = 16.0 * PIXELS;
 
+/// Width, height, and depth of the world. Blocks may not be placed out of these bounds.
+pub const WORLD_SIZE: i32 = 16;
+
 /// List of all six block face directions: Down, Up, North, South, West, East
 pub const BLOCK_FACES: [BlockFace; 6] = [
     BlockFace::Down,
